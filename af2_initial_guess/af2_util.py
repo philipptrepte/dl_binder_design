@@ -240,6 +240,22 @@ def add2scorefile(tag, scorefilename, write_header=False, score_dict=None, strin
         scores_string = " ".join(final_dict.values())
         f.write("SCORE:     %s        %s\n"%(scores_string, tag))
 
+def add2paefile(tag, paefilename, pae=None) -> None:
+    '''
+    Given a pae filename, add the pae scores to the paefile.
+
+    Args:
+        tag (str) : The tag to add to the paefile.
+
+        paefilename (str) : The pae filename to add the pae scores to.
+
+        pae (np.ndarray) : The pae scores to add to the paefile.
+    '''
+    
+    np.set_printoptions(threshold=np.inf, linewidth=np.inf)
+    with open(paefilename, "a") as f:
+        f.write("pae:     %s        %s\n"%(pae.flatten(), tag))
+
 def insert_Rosetta_chainbreaks( pose, binderlen ) -> core.pose.Pose:
     '''
     Given a pose and a list of indices to insert chainbreaks after,

@@ -48,6 +48,7 @@ parser.add_argument( "-outsilent", type=str, default="out.silent", help='The nam
 parser.add_argument( "-runlist", type=str, default='', help="The path of a list of pdb tags to run. Only used when -pdbdir is active (default: ''; Run all PDBs)" )
 parser.add_argument( "-checkpoint_name", type=str, default='check.point', help="The name of a file where tags which have finished will be written (default: check.point)" )
 parser.add_argument( "-scorefilename", type=str, default='out.sc', help="The name of a file where scores will be written (default: out.sc)" )
+parser.add_argument( "-paefilename", type=str, default='out.pae', help="The name of a file where pae scores will be written (default: out.pae)" )
 parser.add_argument( "-maintain_res_numbering", action="store_true", default=False, help='When active, the model will not renumber the residues when bad inputs are encountered (default: False)' )
 
 parser.add_argument( "-debug", action="store_true", default=False, help='When active, errors will cause the script to crash and the error message to be printed out (default: False)')
@@ -82,6 +83,7 @@ class FeatureHolder():
         self.outpose     = None
         self.plddt_array = None
         self.score_dict  = None
+        self.pae = None
 
 class AF2_runner():
     '''
@@ -207,6 +209,7 @@ class AF2_runner():
                 "pae_interaction" : pae_interaction_total,
                 "binder_aligned_rmsd": rmsds['binder_aligned_rmsd'],
                 "target_aligned_rmsd": rmsds['target_aligned_rmsd'],
+                "binderlen": binderlen,
                 "time" : time
         }
 
@@ -216,7 +219,7 @@ class AF2_runner():
         # If we ever want to write strings to the score file we can do it here
         string_dict = None
 
-        self.struct_manager.record_scores(feat_holder.outtag, score_dict, string_dict)
+        self.struct_manager.record_scores(feat_holder.outtag, score_dict, string_dict, pae)
 
         print(score_dict)
         print(f"Tag: {feat_holder.outtag} reported success in {time} seconds")
@@ -316,6 +319,8 @@ class StructManager():
 
         self.score_fn = args.scorefilename
 
+        self.pae_fn = args.paefilename
+
         # Generate a random unique temporary filename
         self.tmp_fn = f'tmp_{uuid.uuid4()}.pdb'
 
@@ -412,7 +417,7 @@ class StructManager():
 
             yield struct
 
-    def record_scores(self, tag, score_dict, string_dict):
+    def record_scores(self, tag, score_dict, string_dict, pae):
         '''
         Record the scores for this structure to the score file.
 
@@ -428,6 +433,7 @@ class StructManager():
             write_header = True
 
         af2_util.add2scorefile(tag, self.score_fn, write_header, score_dict, string_dict) 
+        af2_util.add2paefile(tag, self.pae_fn, pae)
 
     def dump_pose(self, feat_holder):
         '''
