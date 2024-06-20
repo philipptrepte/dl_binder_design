@@ -28,9 +28,9 @@ if [ ! -f $1 ]; then
 fi
 
 if [ -z "${SILENT_J}" ]; then
-    silentextract -j16 "$@"
+    /files/dl_binder_design/include/silent_tools/silentextract -j16 "$@"
 else
-    silentextract "$@"
+    /files/dl_binder_design/include/silent_tools/silentextract "$@"
 fi
 
 
@@ -40,7 +40,7 @@ fi
 
 # cpus=16 #$(parallel --number-of-cores)
 
-# silentls $1 > $tmp_list
+# /files/dl_binder_design/include/silent_tools/silentls $1 > $tmp_list
 
 # splitno=$((( $(wc -l $tmp_list | awk '{print $1}') / $cpus + 1)))
 
@@ -48,9 +48,9 @@ fi
 
 # split -l $splitno $tmp_list $tmp_fol/x
 
-# ls $tmp_fol/x* | parallel "cat {} | silentslice $1 > {}.silent"
+# ls $tmp_fol/x* | /files/parallel/bin/parallel "cat {} | silentslice $1 > {}.silent"
 
-# ls $tmp_fol/x*.silent | parallel 'silentextract {}'
+# ls $tmp_fol/x*.silent | /files/parallel/bin/parallel 'silentextract {}'
 
 # rm $tmp_list
 # rm -r $tmp_fol

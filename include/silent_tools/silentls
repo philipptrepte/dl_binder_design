@@ -3,7 +3,7 @@
 import distutils.spawn
 import os
 import sys
-sys.path.append(os.path.dirname(distutils.spawn.find_executable("silent_tools.py")))
+sys.path.append(os.path.dirname(distutils.spawn.find_executable("/files/dl_binder_design/include/silent_tools/silent_tools.py")))
 import silent_tools
 from silent_tools import eprint
 

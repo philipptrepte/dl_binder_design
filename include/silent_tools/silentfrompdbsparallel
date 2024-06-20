@@ -39,7 +39,7 @@ mkdir $tmp_fol
 
 split -l $splitno $tmp_list $tmp_fol/x
 
-ls $tmp_fol/x* | parallel -j16 'cat {} | silentfrompdbs'
+ls $tmp_fol/x* | /files/parallel/bin/parallel -j16 'cat {} | /files/dl_binder_design/include/silent_tools/silentfrompdbs'
 
 rm $tmp_list
 rm -r $tmp_fol
