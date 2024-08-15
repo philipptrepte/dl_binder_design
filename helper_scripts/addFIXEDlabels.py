@@ -43,13 +43,22 @@ for pdb in pdb_list:
     if args.verbose:
         print(f"Adding FIXED labels to {pdb} at positions {indices}")
 
+    
     remarks = []
     for position in indices:
         remark = f"REMARK PDBinfo-LABEL:{position+1: >5} FIXED"
         remarks.append(remark)
 
-    # Uncomment below to add hotspots
     remarks_str = '\n'.join(remarks)
-    with open(pdb_path, 'a') as f:
+    with open(pdb_path, 'r') as f:
+        pdb_lines = f.readlines()
+    
+    with open(pdb_path, 'w') as f:
+        for line in pdb_lines:
+            number = int(line[22:26])  # Extract the number at position 22 to 26
+            if number in (indices+1):
+                if line[20:23] == " A ":
+                    line = line[:20] + " B " + line[23:]  # Replace the value at position 20 to 22
+            f.write(line)
         f.write('\n')
         f.write(remarks_str)
