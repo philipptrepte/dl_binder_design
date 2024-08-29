@@ -4,22 +4,102 @@ This repo contains the scripts described in the paper [Improving de novo Protein
 
 ![forgithub](https://github.com/nrbennet/dl_binder_design/assets/56419265/4c5d6a05-d2fb-4c7b-b1e0-0c743b2114eb)
 
+# Changes to the original dl_binder_design repository
+
+All pae scores are saved to `-paefilename` as `.pae` file. Old versions generate sometime faulty files where not all pae results are in a new line. To repaur those files use the `repair_pae.sh` script. First, make `repair_pae.sh` executable by `chmod +x repair_pae.sh` and then create a shortcut in a folder that is in `$PATH` using `sudo ln -s /path/to/af2_initial_guess/repair_pae.sh /usr/local/bin/repair_pae`. A backup file of your `.pae` file will be created as `.pae.backup`.
+
+## New functionalities
+
+### *af2_initial_guess/predict.py*
+
+New argument `-paefilename` which defines where pae scores will be written (defaul: out.pae)
+
+#### class AF2_runner()
+
+- `generate_scoredict(self, feat_holder, confidences, rmsds)`
+
+  Now adds the `binderlen` to the score_dict
+
+#### class StructManager() 
+
+- `record_scores(self, tag, score_dict, pae)`
+
+  Now includes the `pae` scores to record.
+
+### *af2_initial_guess/af2_util.py*
+
+- `add2paefile(tag, paefilename, pae)`
+
+  Given a pae filename, add the pae scores to the paefile.
+
+### *helper_scripts/addFIXEDlabels.py*
+
+Fixes `.PDB` files after using `diffuser.partial_T` in RFdiffusion, so that both chains are not `chain A` but the second chain is now `chain B`
+
+
+## New functions
+
+### pae_clustering.py
+
+Performs KMeans clustering on the PAE scores to identify the most likely interaction interface region as the cluster with the minimum mean PAE. This approach is described and benchmarked in [Trepte P. & Secker C. *et al.* (2024) AI-guided pipeline for protein–protein interaction drug discovery identifies a SARS-CoV-2 inhibitor. *Mol Syst Biol*: 1-30](https://www.embopress.org/doi/full/10.1038/s44320-024-00019-8) 
+
+- `process_pae(i, af2scores, pae)`
+
+  Process the PAE (Protein-Antigen Interface Energy) for a given index from a data frame containing the AF2 scores and the PAE values and performs KMeans clustering. Returns the minimum mean PAE score from the eight clusters, as well as the respective cluster size, shape and number.
+
+- `parallel_process_pae(af2scores, pae, num_cores)`
+  
+  Perform parallel processing of the process_pae function on the given af2scores and pae arrays using multiple cores.
+
+- `repair_pae_script(filepath)`
+
+  Repairs the PAE script by running the 'repair_pae' command that calls the 'repair_pae.sh' shell script on the specified file.
+
+  Only repairs the file if a string of the format '(\d+(\.\d+)?)pae:' (e.g. '11.3pae:') is found in the file. If a repair is necessary, a backup file is created.
+
+
+### *af2_initial_guess/plot_pae.py*
+
+- `pae_heatmap(selected_binder, pae, af2scores)`
+
+  Generate a heatmap visualization of the PAE (Positional Amino Acid Enrichment) for a selected binder.
+
+
+  
+
+
+
+
 # Table of Contents
 
-* [Third Party Source Code](#sourcecode)
-* [Setup](#setup0)
-  * [Conda Environment](#setup1)
-    * [Install ProteinMPNN-FastRelax Environment](#setup1.1)
-    * [Install AlphaFold2 Environment](#setup1.2)
-    * [Troubleshooting AF2 GPU Compatibility](#setup1.3)
-  * [Clone ProteinMPNN](#setup2)
-  * [Explanation of Silent Tools](#setup3)
-  * [Download AlphaFold2 Model Weights](#setup4)
-* [Inference](#inf0)
-  * [ProteinMPNN-FastRelax Binder Design](#inf1)
-    * [Running ProteinMPNN with Fixed Residues](#inf2)
-  * [AlphaFold2 Complex Prediction](#inf3)
-* [Troubleshooting](#trb0)
+- [dl\_binder\_design](#dl_binder_design)
+- [Changes to the original dl\_binder\_design repository](#changes-to-the-original-dl_binder_design-repository)
+  - [New functionalities](#new-functionalities)
+    - [*af2\_initial\_guess/predict.py*](#af2_initial_guesspredictpy)
+      - [class AF2\_runner()](#class-af2_runner)
+      - [class StructManager()](#class-structmanager)
+    - [*af2\_initial\_guess/af2\_util.py*](#af2_initial_guessaf2_utilpy)
+    - [*helper\_scripts/addFIXEDlabels.py*](#helper_scriptsaddfixedlabelspy)
+  - [New functions](#new-functions)
+    - [pae\_clustering.py](#pae_clusteringpy)
+    - [*af2\_initial\_guess/plot\_pae.py*](#af2_initial_guessplot_paepy)
+- [Table of Contents](#table-of-contents)
+  - [Third Party Source Code ](#third-party-source-code-)
+- [Setup ](#setup-)
+  - [Conda Environment ](#conda-environment-)
+  - [Install ProteinMPNN-FastRelax Environment ](#install-proteinmpnn-fastrelax-environment-)
+  - [Install AlphaFold2 Environment ](#install-alphafold2-environment-)
+    - [Troubleshooting AF2 GPU Compatibility ](#troubleshooting-af2-gpu-compatibility-)
+  - [Clone ProteinMPNN ](#clone-proteinmpnn-)
+  - [Silent Tools ](#silent-tools-)
+  - [Download AlphaFold2 Model Weights ](#download-alphafold2-model-weights-)
+- [Inference ](#inference-)
+  - [Summary ](#summary-)
+  - [Example Commands ](#example-commands-)
+  - [ProteinMPNN-FastRelax Binder Design ](#proteinmpnn-fastrelax-binder-design-)
+    - [Running ProteinMPNN with Fixed Residues ](#running-proteinmpnn-with-fixed-residues-)
+  - [AlphaFold2 Complex Prediction ](#alphafold2-complex-prediction-)
+- [Troubleshooting ](#troubleshooting-)
 
 
 ## Third Party Source Code <a name="sourcecode"></a>

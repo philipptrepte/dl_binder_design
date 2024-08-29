@@ -253,7 +253,8 @@ def add2paefile(tag, paefilename, pae=None) -> None:
     '''
     np.set_printoptions(threshold=np.inf, linewidth=np.inf)
     with open(paefilename, "a") as f:
-        f.write("pae:     %s        %s\n"%(pae.flatten(), tag))
+        pae_str = ", ".join(map(str, pae.flatten()))
+        f.write(f"pae: {pae_str} tag: {tag}\n")
 
 def insert_Rosetta_chainbreaks( pose, binderlen ) -> core.pose.Pose:
     '''
