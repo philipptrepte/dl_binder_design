@@ -7,8 +7,10 @@ from sklearn.cluster import KMeans
 import multiprocessing
 import subprocess
 import shutil
+import os
+from clean_af2 import clean_checkpoint
 
-def process_pae(i, af2scores, pae):
+def process_pae(i, af2scores, af2pae):
     """
     Process the PAE (Protein-Antigen Interface Energy) for a given index and performs KMeans clustering.
     
@@ -36,15 +38,14 @@ def process_pae(i, af2scores, pae):
                 print(f"AF2 sample is None at index {i}. Changing to NaN")
                 af2scores_sample = np.nan
                 i += 1
-                continue
             binderlen = int(binderlen.iloc[0])
             try: 
-                j = (pae[[2]] == af2scores_sample).idxmax().values[0]
+                j = (af2pae[[2]] == af2scores_sample).idxmax().values[0]
             except Exception as e:
                 print(f"PAE sample not found in PAE file at index {i}. Changing to NaN")
                 complex = np.nan
-            complex = pae[[1]].iloc[j].str.split(r'\s+|,\s*', expand=True)
-            pae_sample = pae[[2]].iloc[j]
+            complex = af2pae[[1]].iloc[j].str.split(r'\s+|,\s*', expand=True)
+            pae_sample = af2pae[[2]].iloc[j]
             if pae_sample.isna().any():
                 print(f"PAE sample is None at index {i}. Changing to NaN")
                 pae_sample = np.nan
@@ -167,7 +168,7 @@ def process_pae(i, af2scores, pae):
     except Exception as e:
         print(f"Error at index {i}: {e}")
 
-def parallel_process_pae(af2scores, pae, num_cores):
+def parallel_process_pae(af2scores, af2pae, num_cores):
     """
     Perform parallel processing of the process_pae function on the given af2scores and pae arrays using multiple cores.
     
@@ -188,7 +189,7 @@ def parallel_process_pae(af2scores, pae, num_cores):
     - The process_pae function is called in parallel for each row of af2scores and pae.
     """
     with multiprocessing.Pool(processes=num_cores) as pool:
-        pae_results = pool.starmap(process_pae, [(i, af2scores, pae) for i in range(af2scores.shape[0])])
+        pae_results = pool.starmap(process_pae, [(i, af2scores, af2pae) for i in range(af2scores.shape[0])])
         
         # Extract the relevant parts from the dictionaries
         min_pae_list = [pd.Series(result['min_pae']) if result is not None else pd.Series([None]) for result in pae_results]
@@ -233,7 +234,6 @@ def repair_pae_script(file_path):
         print(f"Error running repair_pae: {e.stderr}")
         
 if __name__ == '__main__':
-
     #################################
     # Parse Arguments
     #################################
@@ -241,12 +241,63 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # I/O Arguments
-    parser.add_argument( "-score", type=str, default="", help='The path of a file of af2-initial guess scores' )
-    parser.add_argument( "-pae", type=str, default="", help='The path of a file of af2-initial guess pae values' )
+    parser.add_argument( "-score", type=str, default=None, help='The path of a file of af2-initial guess scores' )
+    parser.add_argument( "-pae", type=str, default=None, help='The path of a file of af2-initial guess pae values' )
+    parser.add_argument( "-checkpoint", type=str, default=None, help='The path of the checkpoint file' )
 
     args = parser.parse_args()
 
     #################################
+
+    # Find default files
+    if args.score is None:
+        matching_sc = [f for f in os.listdir() if f.endswith("af2.sc")]
+        if len(matching_sc) == 1:
+            args.score = matching_sc[0]
+            print(f"\nDefault score file found: {args.score} \n")
+            continue_sc = input("Continue with default score file? (y/n): \n")
+            if continue_sc.lower() == 'n':
+                exit()
+            elif continue_sc.lower() == 'y':
+                pass
+        elif len(matching_sc) > 1:
+            print("Multiple score files found. Please specify the score file. Exiting. \n")
+            exit()
+        else:
+            print("No score file found. Please specify the score file. Exiting. \n")
+            exit()
+    if args.pae is None:
+        matching_pae = [f for f in os.listdir() if f.endswith("af2.pae")]
+        if len(matching_pae) == 1:
+            args.pae = matching_pae[0]
+            print(f"\nDefault pae file found: {args.pae} \n")
+            continue_pae = input("Continue with default PAE file? (y/n): \n")
+            if continue_pae.lower() == 'n':
+                exit()
+            elif continue_pae.lower() == 'y':
+                pass
+        elif len(matching_pae) > 1:
+            print("Multiple PAE files found. Please specify the PAE file. Exiting. \n")
+            exit()
+        else:
+            print("No PAE file found. Please specify the PAE file. Exiting. \n")
+            exit()
+    if args.checkpoint is None:
+        matching_checkpoint = [f for f in os.listdir() if f.endswith("af2_check.point")]
+        if len(matching_checkpoint) == 1:
+            args.checkpoint = matching_checkpoint[0]
+            print(f"\nDefault checkpoint file found: {args.checkpoint} \n")
+            continue_checkpoint = input("Continue with default checkpoint file? (y/n): \n")
+            if continue_checkpoint.lower() == 'n':
+                exit()
+            elif continue_checkpoint.lower() == 'y':
+                pass
+        elif len(matching_checkpoint) > 1:
+            print("Multiple checkpoint files found. Please specify the checkpoint file. Exiting. \n")
+            exit()
+        else:
+            print("No checkpoint file found. Please specify the checkpoint file. Exiting. \n")
+            exit()
 
     # Read in the AF2 initial guess score file
     print("Writing backup file \n")
@@ -266,23 +317,24 @@ if __name__ == '__main__':
         print("Old pae file format \n")
         pae = pd.DataFrame()
         for chunk in pd.read_csv(args.pae, sep = '\[ |\]|\s+\]', index_col=False, header=None, engine='python', usecols=[1, 2], chunksize=chunksize):
-            pae = pd.concat([pae, chunk])
+            pae = pd.concat([pae, chunk], ignore_index=True)
     elif csv.map(lambda cell: any(substring in str(cell) for substring in ['tag:'])).any().any():
         print("New pae file format \n")
         pae = pd.DataFrame()
-        for chunk in pd.read_csv(args.pae, sep = r'pae: | tag: ', index_col=False, header=None, engine='python', usecols=[1, 2], chunksize=chunksize):
-            pae = pd.concat([pae, chunk])
+        for chunk in pd.read_csv(args.pae, sep = r'pae:\s+|\s+tag:\s+', index_col=False, header=None, engine='python', usecols=[1, 2], chunksize=chunksize):
+            pae = pd.concat([pae, chunk], ignore_index=True)
     else:
-        raise ValueError("The PAE file does not contain the expected format.")
+        raise ValueError("The PAE file does not contain the expected format. \n")
 
     # KMeans clustering of the pae values in parallel
     print("KMeans clustering is performed on the pae matrix in parallel \n")
     num_cores = max(multiprocessing.cpu_count() - 2, 1)
     print("This may take a while. The number of cores used is :", num_cores, "\n")
+    #from af2_initial_guess.pae_clustering import parallel_process_pae
     pae_results = parallel_process_pae(af2scores, pae, num_cores)
     
     # Add the pae scores to the af2scores dataframe and write a file for missing pae values
-    print('Adding the clustered pae scores to the af2.sc file')
+    print('Adding the clustered pae scores to the af2.sc file \n')
     merged_df = pd.merge(af2scores, pd.DataFrame(pae_results), left_on=['description'], right_on=['pae_description'], how='left')
     merged_df.to_csv(args.score, index=False, sep="\t")
     
@@ -290,3 +342,5 @@ if __name__ == '__main__':
     if missing_pae.size > 0:
         print('Writing a file for missing pae values to the af2.sc.missing file')
         missing_pae.to_csv(args.score + '.missing', index=False, header=False)
+        print(f'Removing the missing pae values from the checkpoint file {args.checkpoint} \n')
+        clean_checkpoint(merged_df['pae_description'], args.checkpoint)
