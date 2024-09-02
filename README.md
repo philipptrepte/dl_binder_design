@@ -6,9 +6,9 @@ This repo contains the scripts described in the paper [Improving de novo Protein
 
 # Changes to the original dl_binder_design repository
 
-All pae scores are saved to `-paefilename` as `.pae` file. Old versions generate sometime faulty files where not all pae results are in a new line. To repaur those files use the `repair_pae.sh` script. First, make `repair_pae.sh` executable by `chmod +x repair_pae.sh` and then create a shortcut in a folder that is in `$PATH` using `sudo ln -s /path/to/af2_initial_guess/repair_pae.sh /usr/local/bin/repair_pae`. A backup file of your `.pae` file will be created as `.pae.backup`.
 
-## New functionalities
+
+## Modified functions
 
 ### *af2_initial_guess/predict.py*
 
@@ -39,9 +39,13 @@ Fixes `.PDB` files after using `diffuser.partial_T` in RFdiffusion, so that both
 
 ## New functions
 
-### pae_clustering.py
+### *pae_clustering.py*
 
 Performs KMeans clustering on the PAE scores to identify the most likely interaction interface region as the cluster with the minimum mean PAE. This approach is described and benchmarked in [Trepte P. & Secker C. *et al.* (2024) AI-guided pipeline for protein–protein interaction drug discovery identifies a SARS-CoV-2 inhibitor. *Mol Syst Biol*: 1-30](https://www.embopress.org/doi/full/10.1038/s44320-024-00019-8) 
+
+```sh
+pae_clustering.py -score [path/to/af2.score] -pae [path/to/af2.pae]
+```
 
 - `process_pae(i, af2scores, pae)`
 
@@ -55,7 +59,20 @@ Performs KMeans clustering on the PAE scores to identify the most likely interac
 
   Repairs the PAE script by running the 'repair_pae' command that calls the 'repair_pae.sh' shell script on the specified file.
 
-  Only repairs the file if a string of the format '(\d+(\.\d+)?)pae:' (e.g. '11.3pae:') is found in the file. If a repair is necessary, a backup file is created.
+  Older versions created faulty .pae files where not all pae results where in a new line. Only repairs the file if a string of the format `'(\d+(\.\d+)?)pae:'` (e.g. '11.3pae:') is found in the file. If a repair is necessary, a backup file is created. To run the `repair_pae.sh` script, make `repair_pae.sh` executable by 
+  
+  ```sh
+  chmod +x repair_pae.sh
+  ``` 
+  
+  then create a shortcut in a folder that is in `$PATH` using 
+  
+  ```sh
+  sudo ln -s /path/to/af2_initial_guess/repair_pae.sh /usr/local/bin/repair_pae
+  ``` 
+  
+  A backup file of your `.pae` file will be created as `.pae.backup`.
+
 
 
 ### *af2_initial_guess/plot_pae.py*
@@ -65,8 +82,29 @@ Performs KMeans clustering on the PAE scores to identify the most likely interac
   Generate a heatmap visualization of the PAE (Positional Amino Acid Enrichment) for a selected binder.
 
 
-  
+### *af2_initial_guess/clean_af2.py*
 
+Sometimes, the `check.point` contains in column `description` files that cannot be found in `af2.pae` or `af2.sc`. Presumambly, AF2 initial guess is not run on all files, for example because *out of memory erros occur*, or because not all pae values are stored properly. To remove such instances from `af2_check.point`, where `description` are not found in `af2.sc` files before or after running `pae_clustering.py` run `clean_af2.py` from the terminal. Define optional argument `reference` (default: `pae_description`) to check column `description` from the original `af2.sc` file or column `pae_description` from the `af2.sc` file after KMeans clustering:
+
+```sh
+clean_af2.py -score [path/to/af2.sc] -pae [path/to/af2.pae] -checkpoint [path/to/check.point] -silent [path/to/af2.silent] -checkpoint [path/to/af2_check.point] -reference [optional]
+```
+
+- `clean_checkpoint(ids, af2checkpoint)`
+  
+  Remove identifiers from checkpoint file `af2checkpoint` that are not in `ids`.
+
+- `clean_af2score(af2score, af2checkpoint, af2reference='pae_description')`
+
+  Cleans the AF2 initial guess score file by removing duplicates found in the `af2reference` column and removes the respective identifiers from the `af2checkpoint` file.
+
+- `clean_pae(af2pae, af2checkpoint)`
+  
+  Cleans the PAE file by removing duplicates and removes the respective identifiers from the `af2checkpoint` file.
+
+- `clean_silent(af2silent, af2scores_no_duplicates, pae_no_duplicates, af2checkpoint)`
+  
+  Cleans the silent file by removing duplicate sequences. Also removes identifiers from the `af2checkpoint` file that are found in the score and pae files, but not in the silent file and vice versa.
 
 
 
@@ -74,15 +112,16 @@ Performs KMeans clustering on the PAE scores to identify the most likely interac
 
 - [dl\_binder\_design](#dl_binder_design)
 - [Changes to the original dl\_binder\_design repository](#changes-to-the-original-dl_binder_design-repository)
-  - [New functionalities](#new-functionalities)
+  - [Modified functions](#modified-functions)
     - [*af2\_initial\_guess/predict.py*](#af2_initial_guesspredictpy)
       - [class AF2\_runner()](#class-af2_runner)
       - [class StructManager()](#class-structmanager)
     - [*af2\_initial\_guess/af2\_util.py*](#af2_initial_guessaf2_utilpy)
     - [*helper\_scripts/addFIXEDlabels.py*](#helper_scriptsaddfixedlabelspy)
   - [New functions](#new-functions)
-    - [pae\_clustering.py](#pae_clusteringpy)
+    - [*pae\_clustering.py*](#pae_clusteringpy)
     - [*af2\_initial\_guess/plot\_pae.py*](#af2_initial_guessplot_paepy)
+    - [*af2\_initial\_guess/clean\_af2.py*](#af2_initial_guessclean_af2py)
 - [Table of Contents](#table-of-contents)
   - [Third Party Source Code ](#third-party-source-code-)
 - [Setup ](#setup-)
