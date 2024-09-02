@@ -6,7 +6,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 import multiprocessing
 import subprocess
-
+import shutil
 
 def process_pae(i, af2scores, pae):
     """
@@ -36,13 +36,18 @@ def process_pae(i, af2scores, pae):
                 print(f"AF2 sample is None at index {i}. Changing to NaN")
                 af2scores_sample = np.nan
                 i += 1
+                continue
             binderlen = int(binderlen.iloc[0])
+            try: 
+                j = (pae[[2]] == af2scores_sample).idxmax().values[0]
+            except Exception as e:
+                print(f"PAE sample not found in PAE file at index {i}. Changing to NaN")
+                complex = np.nan
             complex = pae[[1]].iloc[j].str.split(r'\s+|,\s*', expand=True)
             pae_sample = pae[[2]].iloc[j]
             if pae_sample.isna().any():
                 print(f"PAE sample is None at index {i}. Changing to NaN")
                 pae_sample = np.nan
-                j += 1
             else:
                 pae_sample = pae_sample.iloc[0].replace(' ', '')
             if af2scores_sample != pae_sample:
@@ -91,8 +96,6 @@ def process_pae(i, af2scores, pae):
                 try:
                     sorted_AB = binder_AB[kmeans_AB_rows.labels_.argsort(), :]
                     sorted_AB_cluster1 = sorted_AB[kmeans_AB_rows.labels_==0, :][:, kmeans_AB_cols.labels_==0]
-                    sorted_AB_cluster1.shape
-
                     sorted_AB_cluster2 = sorted_AB[kmeans_AB_rows.labels_==1, :][:, kmeans_AB_cols.labels_==1]
                     sorted_AB_cluster3 = sorted_AB[kmeans_AB_rows.labels_==0, :][:, kmeans_AB_cols.labels_==1]
                     sorted_AB_cluster4 = sorted_AB[kmeans_AB_rows.labels_==1, :][:, kmeans_AB_cols.labels_==0]
@@ -240,17 +243,16 @@ if __name__ == '__main__':
     # I/O Arguments
     parser.add_argument( "-score", type=str, default="", help='The path of a file of af2-initial guess scores' )
     parser.add_argument( "-pae", type=str, default="", help='The path of a file of af2-initial guess pae values' )
-    parser.add_argument( "-backup", type=str, default="af2sc.backup", help='The path of a backup file of af2-initial guess scores' )
 
     args = parser.parse_args()
 
     #################################
 
     # Read in the AF2 initial guess score file
-    print("Read in the AF2 initial guess score file \n")
-    af2scores = pd.read_csv(args.score, sep='\s+')
     print("Writing backup file \n")
-    af2scores.to_csv(args.backup, index=False, sep='\t')
+    shutil.copy(args.score, args.score + '.backup')
+    print("Read in the AF2 initial guess score file \n")
+    af2scores = pd.read_csv(args.score, sep='\s+(?![^()]*\))', engine='python', index_col=False, usecols=range(12))
 
     # Repair the pae
     print("Checking pae file \n")
@@ -277,13 +279,14 @@ if __name__ == '__main__':
     print("KMeans clustering is performed on the pae matrix in parallel \n")
     num_cores = max(multiprocessing.cpu_count() - 2, 1)
     print("This may take a while. The number of cores used is :", num_cores, "\n")
-    
     pae_results = parallel_process_pae(af2scores, pae, num_cores)
     
     # Add the pae scores to the af2scores dataframe and write a file for missing pae values
     print('Adding the clustered pae scores to the af2.sc file')
     merged_df = pd.merge(af2scores, pd.DataFrame(pae_results), left_on=['description'], right_on=['pae_description'], how='left')
     merged_df.to_csv(args.score, index=False, sep="\t")
-    print('Writing a file for missing pae values to the af2.sc.missing file')
+    
     missing_pae = merged_df[merged_df['pae_description'].isna()]['description']  
-    missing_pae.to_csv(args.score + '.missing', index=False, header=False)
+    if missing_pae.size > 0:
+        print('Writing a file for missing pae values to the af2.sc.missing file')
+        missing_pae.to_csv(args.score + '.missing', index=False, header=False)
