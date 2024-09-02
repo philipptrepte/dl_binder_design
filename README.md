@@ -106,6 +106,9 @@ clean_af2.py -score [path/to/af2.sc] -pae [path/to/af2.pae] -checkpoint [path/to
   
   Cleans the silent file by removing duplicate sequences. Also removes identifiers from the `af2checkpoint` file that are found in the score and pae files, but not in the silent file and vice versa.
 
+- `clean_af2results(af2score, af2pae, sc_out, pae_out, af2checkpoint)`
+  
+  Cleans the AF2 initial guess score and PAE files by removing identifiers that are not found in the checkpoint file.
 
 
 # Table of Contents
