@@ -8,7 +8,7 @@ import multiprocessing
 import subprocess
 import shutil
 import os
-from clean_af2 import clean_checkpoint
+from clean_af2 import clean_checkpoint, repair_pae_script
 
 def process_pae(i, af2scores, af2pae):
     """
@@ -215,24 +215,7 @@ def parallel_process_pae(af2scores, af2pae, num_cores):
         }
         
     return final_results
-
-def repair_pae_script(file_path):
-    """
-    Repairs the PAE script by running the 'repair_pae' command that calls the 'repair_pae.sh' shell script on the specified file.
-    Only repairs the file if a string of the format '(\d+(\.\d+)?)pae:' (e.g. '11.3pae:') is found in the file. If a repair is necessary, a backup file is created.
-
-    Parameters:
-    - file_path (str): The path to the PAE script file.
-
-    Returns:
-    - A '.pae' repaired file and the original file as '.pae.backup' in the same directory as the original file. 
-    """
-    try:
-        result = subprocess.run(['repair_pae', file_path], check=True, text=True, capture_output=True)
-        print(result.stdout)
-    except subprocess.CalledProcessError as e:
-        print(f"Error running repair_pae: {e.stderr}")
-        
+       
 if __name__ == '__main__':
     #################################
     # Parse Arguments
@@ -321,7 +304,7 @@ if __name__ == '__main__':
     elif csv.map(lambda cell: any(substring in str(cell) for substring in ['tag:'])).any().any():
         print("New pae file format \n")
         pae = pd.DataFrame()
-        for chunk in pd.read_csv(args.pae, sep = r'pae:\s+|\s+tag:\s+', index_col=False, header=None, engine='python', usecols=[1, 2], chunksize=chunksize):
+        for chunk in pd.read_csv(args.pae, sep = r'pae:\s+|\s+tag:\s+', index_col=False, header=None, engine='python', chunksize=chunksize):
             pae = pd.concat([pae, chunk], ignore_index=True)
     else:
         raise ValueError("The PAE file does not contain the expected format. \n")
@@ -330,7 +313,7 @@ if __name__ == '__main__':
     print("KMeans clustering is performed on the pae matrix in parallel \n")
     num_cores = max(multiprocessing.cpu_count() - 2, 1)
     print("This may take a while. The number of cores used is :", num_cores, "\n")
-    #from af2_initial_guess.pae_clustering import parallel_process_pae
+    #from af2_initial_guess.pae_clustering import parallel_process_pae, process_pae
     pae_results = parallel_process_pae(af2scores, pae, num_cores)
     
     # Add the pae scores to the af2scores dataframe and write a file for missing pae values

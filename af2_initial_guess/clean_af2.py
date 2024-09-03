@@ -7,6 +7,23 @@ import shutil
 import subprocess
 import os
 
+def repair_pae_script(file_path):
+    """
+    Repairs the PAE script by running the 'repair_pae' command that calls the 'repair_pae.sh' shell script on the specified file.
+    Only repairs the file if a string of the format '(\d+(\.\d+)?)pae:' (e.g. '11.3pae:') is found in the file. If a repair is necessary, a backup file is created.
+
+    Parameters:
+    - file_path (str): The path to the PAE script file.
+
+    Returns:
+    - A '.pae' repaired file and the original file as '.pae.backup' in the same directory as the original file. 
+    """
+    try:
+        result = subprocess.run(['repair_pae', file_path], check=True, text=True, capture_output=True)
+        print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        print(f"Error running repair_pae: {e.stderr}")
+
 def clean_checkpoint(ids, af2checkpoint):
     """
     Remove identifiers from checkpoint file that are not in `ids`.
@@ -83,6 +100,7 @@ def duplicates_af2score(af2score, af2checkpoint, af2reference='pae_description')
             clean_checkpoint(ids, af2checkpoint)
     else:
         print("No duplicates found in the 'description' column of the AF2 initial guess score file. \n")
+        clean_checkpoint(ids, af2checkpoint)
         scores_no_duplicates = scores
 
     return scores_no_duplicates
@@ -105,6 +123,9 @@ def duplicates_pae(af2pae, af2checkpoint):
     - ValueError: If the PAE file does not contain the expected format.
     """
 
+    print("Checking pae file \n")
+    repair_pae_script(args.pae)
+
     chunksize=10**3
     print(f"Read in the pae file {af2pae} \n")
     csv = pd.read_csv(af2pae, sep = '\s+', header=None, engine='python', nrows=1) 
@@ -120,8 +141,11 @@ def duplicates_pae(af2pae, af2checkpoint):
             pae = pd.concat([pae, chunk])
     else:
         raise ValueError("The PAE file does not contain the expected format.")
-
+    
+    print("Removing lines where description is missing \n")
+    pae = pae[~pae[2].isnull()]
     duplicates_pae = pae[2].duplicated(keep='last')
+    
     if duplicates_pae.any():
         print("Duplicates found in the second column 'pae_description' of the PAE file. \n")
         print(f"Saving a backup of the pae file {af2pae + '.backup'} \n")
@@ -134,7 +158,7 @@ def duplicates_pae(af2pae, af2checkpoint):
             print(f"Saving pae file without duplicates to {af2pae} \n")
             pae_no_duplicates.insert(0, 'pae', 'pae:')
             pae_no_duplicates.insert(2, 'tag', 'tag:')
-            pae_no_duplicates[3] = pae_no_duplicates[3].str.strip()
+            pae_no_duplicates.iloc[:,3] = pae_no_duplicates.iloc[:,3].str.strip()
             pae_no_duplicates.to_csv(af2pae, sep=' ', index=False, header=False, quotechar=' ', quoting=3, escapechar=' ')
             print(f"Removing duplicates from the checkpoint file {af2checkpoint} \n")
             clean_checkpoint(pae_no_duplicates[2], af2checkpoint)
@@ -142,7 +166,7 @@ def duplicates_pae(af2pae, af2checkpoint):
         print("No duplicates found in the PAE file. \n")
         pae_no_duplicates = pae
         pae_no_duplicates[2] = pae_no_duplicates[2].str.strip()
-
+        clean_checkpoint(pae_no_duplicates[2], af2checkpoint)
     
     return pae_no_duplicates
 
@@ -228,6 +252,7 @@ def clean_silent(af2silent, af2scores_no_duplicates, pae_no_duplicates, af2check
 
         elif duplicates_silent.sum() == 0:
             print("No duplicates found in the silent file. \n")
+            clean_checkpoint(pd.Series(lines_series), af2checkpoint)
 
     else:
         print("Error executing silentls command:", result.stderr.decode('utf-8'))
@@ -258,16 +283,24 @@ def clean_af2results(af2score, af2pae, sc_out, pae_out, af2checkpoint):
     if af2pae[2].str.contains('_af2pred').any():
         af2pae[2] = af2pae[2].str.replace('_af2pred', '')
         af2pae[2] = af2pae[2].str.strip()   
-    missing_ids = pd.concat([af2score['description'], af2pae[2]]).drop_duplicates().isin(ids)
+    missing_ids = pd.concat([af2score['description'], af2pae[2]]).isin(ids)
+    pd.concat([af2score['description'], af2pae[2]])[~missing_ids]
     if (~missing_ids).any():
-        print(f"Removing {(~missing_ids).sum()} missing id(s) from score and pae files \n")
-        af2score_cleaned = af2score[af2score['description'].isin(ids)]
-        af2pae_cleaned = af2pae[af2pae[2].isin(ids)]
-        print(f"Writing cleaned af2.sc file to {sc_out} \n")
-        af2score_cleaned.to_csv(sc_out, sep="\t", index=False)
-        print(f"Writing cleaned af2.pae file to {pae_out} \n")
-        af2pae_cleaned.insert(2, 'tag', 'tag:')
-        af2pae_cleaned.to_csv(pae_out, sep=' ', index=False, header=False, quotechar=' ', quoting=3, escapechar=' ')
+        missing_count = (~missing_ids).sum()
+        if missing_count > 0:
+            continue_missing = input(f"{missing_count} missing id(s) found in score and pae files:  Remove from checkpoint? (y/n)\n")
+            if continue_missing.lower() == 'n':
+                exit()
+            elif continue_missing.lower() == 'y':
+                print(f"Removing {missing_count} missing id(s) from score and pae files \n")
+                af2score_cleaned = af2score[af2score['description'].isin(ids)]
+                af2pae_cleaned = af2pae[af2pae[2].isin(ids)]
+                print(f"Writing cleaned af2.sc file to {sc_out} \n")
+                af2score_cleaned.to_csv(sc_out, sep="\t", index=False)
+                print(f"Writing cleaned af2.pae file to {pae_out} \n")
+                af2pae_cleaned.insert(0, 'pae', 'pae:')
+                af2pae_cleaned.insert(2, 'tag', 'tag:')
+                af2pae_cleaned.to_csv(pae_out, sep=' ', index=False, header=False, quotechar=' ', quoting=3, escapechar=' ')
     elif missing_ids.all():
         print("All ids in score and pae files are in the checkpoint file. \n")
 
@@ -290,6 +323,7 @@ if __name__ == '__main__':
 
     #################################
 
+    args.reference = 'pae_description'
     # Find default files
     if args.score is None:
         matching_sc = [f for f in os.listdir() if f.endswith("af2.sc")]
