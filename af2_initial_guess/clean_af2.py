@@ -79,6 +79,7 @@ def duplicates_af2score(af2score, af2checkpoint, af2reference='pae_description')
     assert af2reference in ['description', 'pae_description'], "af2reference must be either 'description' or 'pae_description'."
     print(f"Read in the AF2 initial guess score file {af2score} \n")
     scores = pd.read_csv(af2score, sep=r'\s+(?![^()]*\))', engine='python', index_col=False)
+    ids = scores['description'].str.replace('_af2pred', '')
     if scores.columns.isin([af2reference]).any() == False:
         print(f"Reference column {af2reference} not found in the score file. Setting af2reference to 'description'. \n")
         af2reference = 'description'

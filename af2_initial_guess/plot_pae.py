@@ -29,10 +29,8 @@ def pae_heatmap(selected_binder, pae, af2scores):
     binderlen = int(binderlen.iloc[0])
 
     pae = pae[pae[2].str.strip()==selected_binder]
-    pae.head()
 
-
-    complex = pae[[1]].iloc[0].str.split('\s+', expand=True)
+    complex = pae[[1]].iloc[0].str.split(',\s+|\s+', expand=True)
     complex = complex.dropna(how='all', axis=1)
     complex_list = complex.values.flatten().tolist()
     complex_size = int(np.sqrt(len(complex_list)))
