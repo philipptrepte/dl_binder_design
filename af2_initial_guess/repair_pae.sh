@@ -12,16 +12,28 @@ filename=$(basename "$input_file")
 backup_file="${input_file}.backup"
 temp_file="${input_file}.tmp"
 
+if grep -qE '(\d+(\.\d+)?)pae:' "$input_file" || grep -qE '(\d+(\.\d+)?),pae:' "$input_file"; then
+    echo "Writing a backup file as $backup_file."
+    cp "$input_file" "$backup_file"
+else
+    echo "No errors found. '.pae' file remains unchanged."
+    exit 0
+fi
+
 # Check if the pattern exists in the input file
 if grep -qE '(\d+(\.\d+)?)pae:' "$input_file"; then
-    # Backup the original input file
-    cp "$input_file" "$backup_file"
+    echo "Error found where a pae value is directly followed by the 'pae:' keyword. Adding a line break."
     # Use perl to introduce a line break between the number and "pae:"
     perl -pe 's/(\d+(\.\d+)?)pae:/\1\npae:/g' "$input_file" > "$temp_file"
     # Move the temporary file to the original file
     mv "$temp_file" "$input_file"
-    echo "Error found and repairing. Original '.pae' file backed up as $backup_file"
     echo "Processed '.pae' file saved as $input_file"
-else
-    echo "No erros found. '.pae' file remains unchanged."
+fi
+if grep -qE '(\d+(\.\d+)?),pae:' "$input_file"; then
+    echo "Error found where a pae value is directly followed by a comma and the 'pae' keyword. Adding a line break."
+    # Use perl to introduce a line break between the number and "pae:"
+    perl -pe 's/(\d+(\.\d+)?),pae:/\1\npae:/g' "$input_file" > "$temp_file"
+    # Move the temporary file to the original file
+    mv "$temp_file" "$input_file"
+    echo "Processed '.pae' file saved as $input_file"
 fi
