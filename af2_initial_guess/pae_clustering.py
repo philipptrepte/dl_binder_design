@@ -96,6 +96,7 @@ def process_pae(i, af2scores, af2pae):
                 np.unique(kmeans_AB_rows.labels_).size > 1 and np.unique(kmeans_AB_cols.labels_).size > 1):
                 try:
                     sorted_AB = binder_AB[kmeans_AB_rows.labels_.argsort(), :]
+                    sorted_AB = binder_AB[:, kmeans_AB_cols.labels_.argsort()]
                     sorted_AB_cluster1 = sorted_AB[kmeans_AB_rows.labels_==0, :][:, kmeans_AB_cols.labels_==0]
                     sorted_AB_cluster2 = sorted_AB[kmeans_AB_rows.labels_==1, :][:, kmeans_AB_cols.labels_==1]
                     sorted_AB_cluster3 = sorted_AB[kmeans_AB_rows.labels_==0, :][:, kmeans_AB_cols.labels_==1]
@@ -121,6 +122,7 @@ def process_pae(i, af2scores, af2pae):
             if (kmeans_BA_rows is not None and kmeans_BA_cols is not None and
                 np.unique(kmeans_BA_rows.labels_).size > 1 and np.unique(kmeans_BA_cols.labels_).size > 1):
                 try:
+                    sorted_BA = binder_BA[:, kmeans_BA_cols.labels_.argsort()]
                     sorted_BA = binder_BA[kmeans_BA_rows.labels_.argsort(), :]
                     sorted_BA_cluster5 = sorted_BA[kmeans_BA_rows.labels_==0, :][:, kmeans_BA_cols.labels_==0]
                     sorted_BA_cluster6 = sorted_BA[kmeans_BA_rows.labels_==1, :][:, kmeans_BA_cols.labels_==1]
@@ -146,21 +148,28 @@ def process_pae(i, af2scores, af2pae):
 
             pae_score = pd.concat([mean_AB, mean_BA], axis=0).reset_index(drop=True)
             min_pae = np.min(pae_score['means'].astype(np.float64))
-            min_pae_size = pae_score.loc[pae_score['means'].idxmin(), 'size']
+            max_pae = np.max(pae_score['means'].astype(np.float64))
+            min_pae_size = pae_score.loc[pae_score['means'] == min_pae, 'size'].sum()
+            min_pae_size_fraction = min_pae_size / (pae_score.loc[pae_score['means'] != min_pae, 'size'].sum())
             min_pae_shape = pae_score.loc[pae_score['means'].idxmin(), 'shape']
             min_pae_cluster = pae_score.loc[pae_score['means'].idxmin(), 'cluster']
+            
 
         except Exception as e:
             pae_score = np.nan
             min_pae = np.nan
+            max_pae = np.nan
             min_pae_size = np.nan
+            min_pae_size_fraction = np.nan
             min_pae_shape = np.nan
             min_pae_cluster = np.nan
             print(f"Error calculating PAE score at index {i}: {e}. Setting to NaN")
 
         return {
             'min_pae': round(min_pae, 3), 
+            'max_pae': round(max_pae, 3), 
             'min_pae_size': min_pae_size, 
+            'min_pae_size_fraction': min_pae_size_fraction,
             'min_pae_shape': min_pae_shape, 
             'min_pae_cluster': min_pae_cluster,
             'pae_sample': pae_sample
@@ -193,14 +202,18 @@ def parallel_process_pae(af2scores, af2pae, num_cores):
         
         # Extract the relevant parts from the dictionaries
         min_pae_list = [pd.Series(result['min_pae']) if result is not None else pd.Series([None]) for result in pae_results]
+        max_pae_list = [pd.Series(result['max_pae']) if result is not None else pd.Series([None]) for result in pae_results]
         min_pae_size_list = [pd.Series(result['min_pae_size']) if result is not None else pd.Series([None]) for result in pae_results]
+        min_pae_size_fraction_list = [pd.Series(result['min_pae_size_fraction']) if result is not None else pd.Series([None]) for result in pae_results]
         min_pae_shape_list = [pd.Series([tuple(result['min_pae_shape'])]) if result is not None else pd.Series([None]) for result in pae_results]
         min_pae_cluster_list = [pd.Series(result['min_pae_cluster']) if result is not None else pd.Series([None]) for result in pae_results]
         pae_sample = [pd.Series(result['pae_sample']) if result is not None else pd.Series([None]) for result in pae_results]
         
         # Concatenate the extracted parts if they are pandas objects
         min_pae_df = pd.concat(min_pae_list)
+        max_pae_df = pd.concat(max_pae_list)
         min_pae_size_df = pd.concat(min_pae_size_list)
+        min_pae_size_fraction_df = pd.concat(min_pae_size_fraction_list)
         min_pae_shape_df = pd.concat(min_pae_shape_list)
         min_pae_cluster_df = pd.concat(min_pae_cluster_list)
         pae_sample = pd.concat(pae_sample)
@@ -209,9 +222,11 @@ def parallel_process_pae(af2scores, af2pae, num_cores):
         final_results = {
             'pae_cluster': min_pae_df,
             'size': min_pae_size_df,
+            'size_fraction': min_pae_size_fraction_df,
             'shape': min_pae_shape_df,
             'cluster': min_pae_cluster_df,
-            'pae_description': pae_sample
+            'pae_description': pae_sample,
+            'max_pae_cluster': max_pae_df
         }
         
     return final_results
