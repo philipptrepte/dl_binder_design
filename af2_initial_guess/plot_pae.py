@@ -56,8 +56,9 @@ def pae_heatmap(selected_binder, pae, af2scores):
     # KMeans clustering gave a result
     sorted_AB = binder_AB[kmeans_AB_rows.labels_.argsort(), :]
     sorted_AB = binder_AB[:, kmeans_AB_cols.labels_.argsort()]
-    sorted_BA = binder_BA[kmeans_BA_rows.labels_.argsort(), :]
+    
     sorted_BA = binder_BA[:, kmeans_BA_cols.labels_.argsort()]
+    sorted_BA = binder_BA[kmeans_BA_rows.labels_.argsort(), :]
     # Define the heatmap colors and create the colormap
     colors = ["blue", "white", "red"]
     cmap = LinearSegmentedColormap.from_list("mycmap", colors)
@@ -126,6 +127,33 @@ def pae_heatmap(selected_binder, pae, af2scores):
         ax.set_yticks(x_ticks)
         ax.set_yticklabels(x_ticks)
 
+    plt.show()
+
+def pae_monomer_heatmap(selected_monomer, af2pae):
+    
+    if af2pae.columns.isin(['description']).any():
+        pae = af2pae[af2pae['description'].str.strip()==selected_monomer]
+        complex = pae[['PAE']].iloc[0].str.split(',\s+|\s+', expand=True)
+    else:
+        pae = af2pae[af2pae[2].str.strip()==selected_monomer]
+        complex = pae[[1]].iloc[0].str.split(',\s+|\s+', expand=True)
+    complex = complex.dropna(how='all', axis=1)
+    complex_list = complex.values.flatten().tolist()
+    complex_size = int(np.sqrt(len(complex_list)))
+    complex_matrix = np.reshape(complex_list, (complex_size, complex_size))
+    
+    # Define the heatmap colors and create the colormap
+    colors = ["blue", "white", "red"]
+    cmap = LinearSegmentedColormap.from_list("mycmap", colors)
+    plt_ticks = np.arange(0, complex_size + 1, 25)
+    
+    sns.heatmap(complex_matrix.astype(np.float64), cmap=cmap, vmin=0, vmax=35)
+    plt.xlabel('amino acid')
+    plt.ylabel('amino acid')
+    plt.text(x = (complex_size / 2), y = (complex_size / 2), s = selected_monomer, ha = 'center', va = 'center', fontsize = 12, color='white')
+    plt.xticks(ticks = plt_ticks, labels = plt_ticks)
+    plt.yticks(ticks = plt_ticks, labels = plt_ticks)
+    
     plt.show()
 
 if __name__ == '__main__':
