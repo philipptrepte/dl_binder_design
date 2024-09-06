@@ -8,9 +8,42 @@ import multiprocessing
 import subprocess
 import shutil
 import os
+import re
 from clean_af2 import clean_checkpoint, repair_pae_script
 
-def process_pae(i, af2scores, af2pae):
+def hotspot_mapping(hotspots, contigmap, binderlen):
+    """
+    Maps the given hotspots to their positions according to the contigmap.
+
+    Args:
+        hotspots (str): A string containing the hotspots to be mapped.
+        contigmap (str): A string containing the contigmap from RFdiffusion.
+        binderlen (int): The length of the binder.
+
+    Returns:
+        list: A list of residue positions corresponding to the mapped hotspots.
+
+    """
+    # Rest of the code...
+    ranges = re.findall(r'[AB](\d+)-(\d+)/0', contigmap)
+    numbers = []
+    for start, end in ranges:
+            numbers.extend(range(int(start), int(end) + 1))
+    hotspots = re.findall(r'[AB](\d+)', hotspots)
+    hotspots = [int(number) for number in hotspots]
+    # Map each hotspot to its position in numbers
+    hotspot_positions = {}
+    for hotspot in hotspots:
+        if hotspot in numbers:
+            position = numbers.index(hotspot)
+            hotspot_positions[hotspot] = position
+        else:
+            hotspot_positions[hotspot] = None
+    hotspot = list(hotspot_positions.values())
+    residues = [hotspot + binderlen + 1 for hotspot in hotspot]
+    return residues
+
+def process_pae(i, af2scores, af2pae, contigmap, hotspots):
     """
     Process the PAE (Protein-Antigen Interface Energy) for a given index and performs KMeans clustering.
     
@@ -18,13 +51,23 @@ def process_pae(i, af2scores, af2pae):
         i (int): The index of the PAE to process.
         af2scores (pandas.DataFrame): The DataFrame containing AF2 scores.
         pae (pandas.DataFrame): The DataFrame containing PAE values.
+        contigmap (str): The contigmap parameter from RFdiffusion.
+        hotspots (str): The hotspots parameter from RFdiffusion.
     
     Returns:
         dict: A dictionary containing the following information:
             - 'min_pae' (float): The minimum mean PAE score from the 8 clusters after KMeans clustering.
+            - 'max_pae' (float): The maximum mean PAE score from the 8 clusters after KMeans clustering.
             - 'min_pae_size' (int): The cluster size (row x column) for the cluster with the minimum mean PAE.
+            - 'min_pae_size_fraction' (float): The fraction of the cluster size for the cluster with the minimum mean PAE.
             - 'min_pae_shape' (tuple): The shape (row x column) for the cluster with the minimum mean PAE.
             - 'min_pae_cluster' (str): The cluster number for the cluster with the minimum mean PAE.
+            - 'hotspot_min_pae' (float): The minimum mean PAE score from the 4 clusters after KMeans clustering of hotspot residues.
+            - 'hotspot_max_pae' (float): The maximum mean PAE score from the 4 clusters after KMeans clustering of hotspot residues.
+            - 'hotspot_min_pae_size' (int): The cluster size (row x column) for the cluster with the minimum mean PAE of hotspot residues.
+            - 'hotspot_min_pae_size_fraction' (float): The fraction of the cluster size for the cluster with the minimum mean PAE of hotspot residues.
+            - 'hotspot_min_pae_shape' (tuple): The shape (row x column) for the cluster with the minimum mean PAE of hotspot residues.
+            - 'hotspot_min_pae_cluster' (str): The cluster number for the cluster with the minimum mean PAE of hotspot residues.
             - 'pae_sample' (str): The description for the cluster with the minimum mean PAE.
     """
 
@@ -60,6 +103,7 @@ def process_pae(i, af2scores, af2pae):
         complex_list = complex.values.flatten().tolist()
         complex_size = int(np.sqrt(len(complex_list)))
 
+        # KMeans clustering of the interaction interface PAE values
         try:
             complex_matrix = np.reshape(complex_list, (complex_size, complex_size))
             #extract pae of binder
@@ -153,8 +197,75 @@ def process_pae(i, af2scores, af2pae):
             min_pae_size_fraction = min_pae_size / (pae_score.loc[pae_score['means'] != min_pae, 'size'].sum())
             min_pae_shape = pae_score.loc[pae_score['means'].idxmin(), 'shape']
             min_pae_cluster = pae_score.loc[pae_score['means'].idxmin(), 'cluster']
-            
 
+
+            # Map hotspots to their positions in the trimmed PDB file according to the contigmap parameter
+            residues = hotspot_mapping(hotspots, contigmap, binderlen)
+
+            #extract pae of hotspot residues
+            hotspot_matrix_0 = complex_matrix[residues, 0:binderlen]
+            hotspot_matrix_1 = complex_matrix[0:binderlen, residues]
+
+            #perform kmeans clustering of hotspot residues
+            try:
+                hotspot_cluster_0_rows = KMeans(n_clusters=2, random_state=0, n_init='auto').fit(np.transpose(hotspot_matrix_0))
+                hotspot_cluster_1_rows = KMeans(n_clusters=2, random_state=0, n_init='auto').fit((hotspot_matrix_1))
+            except:
+                print('KMeans clustering failed')
+
+            try:
+                hotspot_cluster1 = hotspot_matrix_0[:, hotspot_cluster_0_rows.labels_==0]
+                hotspot_cluster2 = hotspot_matrix_0[:, hotspot_cluster_0_rows.labels_==1]
+                hotspot_cluster3 = hotspot_matrix_1[hotspot_cluster_1_rows.labels_==0, :]
+                hotspot_cluster4 = hotspot_matrix_1[hotspot_cluster_1_rows.labels_==1, :]
+                
+            except:
+                print('Cluster filtering failed')
+
+            if hotspot_cluster1 is not None and hotspot_cluster2 is not None:
+                try:
+                    mean_hotspot_0 = pd.DataFrame([np.mean(hotspot_cluster1.astype(np.float64)), 
+                                        np.mean(hotspot_cluster2.astype(np.float64))], columns = ['means'])
+                    mean_hotspot_0['cluster'] = ['Cluster_1', 'Cluster_2']
+                    mean_hotspot_0['size'] = [hotspot_cluster1.size, hotspot_cluster2.size]
+                    mean_hotspot_0['shape'] = [hotspot_cluster1.shape, hotspot_cluster2.shape]
+                except Exception as e:
+                    print(f"Error calculating mean PAE for hotspot residues at index {i}: {e}")
+            else:
+                try:
+                    mean_hotspot_0 = np.mean(hotspot_matrix_0.astype(np.float64))
+                    mean_hotspot_0['cluster'] = 'KMeans_failed'
+                    mean_hotspot_0['size'] = hotspot_matrix_0.size
+                    mean_hotspot_0['shape'] = hotspot_matrix_0.shape
+                except Exception as e:
+                    print(f"Error calculating mean PAE for hotspot residues at index {i}: {e}")
+
+            if hotspot_cluster3 is not None and hotspot_cluster4 is not None:
+                try:
+                    mean_hotspot_1 = pd.DataFrame([np.mean(hotspot_cluster3.astype(np.float64)), 
+                                        np.mean(hotspot_cluster4.astype(np.float64))], columns = ['means'])
+                    mean_hotspot_1['cluster'] = ['Cluster_3', 'Cluster_4']
+                    mean_hotspot_1['size'] = [hotspot_cluster3.size, hotspot_cluster4.size]
+                    mean_hotspot_1['shape'] = [hotspot_cluster3.shape, hotspot_cluster4.shape]
+                except Exception as e:
+                    print(f"Error calculating mean PAE for hotspot residues at index {i}: {e}")
+            else:
+                try:
+                    mean_hotspot_1 = np.mean(hotspot_matrix_1.astype(np.float64))
+                    mean_hotspot_1['cluster'] = 'KMeans_failed'
+                    mean_hotspot_1['size'] = hotspot_matrix_1.size
+                    mean_hotspot_1['shape'] = hotspot_matrix_1.shape
+                except Exception as e:
+                    print(f"Error calculating mean PAE for hotspot residues at index {i}: {e}")
+
+            hotspot_pae_score = pd.concat([mean_hotspot_0, mean_hotspot_1], axis=0).reset_index(drop=True)
+            hotspot_min_pae = np.min(hotspot_pae_score['means'].astype(np.float64))
+            hotspot_max_pae = np.max(hotspot_pae_score['means'].astype(np.float64))
+            hotspot_min_pae_size = hotspot_pae_score.loc[hotspot_pae_score['means'] == hotspot_min_pae, 'size'].sum()
+            hotspot_min_pae_size_fraction = hotspot_min_pae_size / (hotspot_pae_score.loc[hotspot_pae_score['means'] != hotspot_min_pae, 'size'].sum())
+            hotspot_min_pae_shape = hotspot_pae_score.loc[hotspot_pae_score['means'].idxmin(), 'shape']
+            hotspot_min_pae_cluster = hotspot_pae_score.loc[hotspot_pae_score['means'].idxmin(), 'cluster']
+            
         except Exception as e:
             pae_score = np.nan
             min_pae = np.nan
@@ -163,6 +274,13 @@ def process_pae(i, af2scores, af2pae):
             min_pae_size_fraction = np.nan
             min_pae_shape = np.nan
             min_pae_cluster = np.nan
+            hotspot_pae_score = np.nan
+            hotspot_min_pae = np.nan
+            hotspot_max_pae = np.nan
+            hotspot_min_pae_size = np.nan
+            hotspot_min_pae_size_fraction = np.nan
+            hotspot_min_pae_shape = np.nan
+            hotspot_min_pae_cluster = np.nan
             print(f"Error calculating PAE score at index {i}: {e}. Setting to NaN")
 
         return {
@@ -172,18 +290,26 @@ def process_pae(i, af2scores, af2pae):
             'min_pae_size_fraction': min_pae_size_fraction,
             'min_pae_shape': min_pae_shape, 
             'min_pae_cluster': min_pae_cluster,
+            'hotspot_min_pae': round(hotspot_min_pae, 3),
+            'hotspot_max_pae': round(hotspot_max_pae, 3),
+            'hotspot_min_pae_size': hotspot_min_pae_size,
+            'hotspot_min_pae_size_fraction': hotspot_min_pae_size_fraction,
+            'hotspot_min_pae_shape': hotspot_min_pae_shape,
+            'hotspot_min_pae_cluster': hotspot_min_pae_cluster,
             'pae_sample': pae_sample
         }
     except Exception as e:
         print(f"Error at index {i}: {e}")
 
-def parallel_process_pae(af2scores, af2pae, num_cores):
+def parallel_process_pae(af2scores, af2pae, contigmap, hotspots, num_cores):
     """
     Perform parallel processing of the process_pae function on the given af2scores and pae arrays using multiple cores.
     
     Parameters:
     - af2scores (numpy.ndarray): Array of shape (n, m) representing the af2scores from the '.sc' file when running alphafold initial guess.
     - pae (numpy.ndarray): Array of shape (n,) representing the pae values from the '.pae' file when running alphafold initial guess.
+    - contigmap (str): The contigmap parameter from RFdiffusion.
+    - hotspots (str): The hotspots parameter from RFdiffusion.
     - num_cores (int): Number of CPU cores to be used for parallel processing.
     
     Returns:
@@ -193,12 +319,18 @@ def parallel_process_pae(af2scores, af2pae, num_cores):
         - 'shape' (pandas.Series): The shape (row x column) for the cluster with the minimum mean PAE.
         - 'cluster' (pandas.Series): The cluster number for the cluster with the minimum mean PAE.
         - 'pae_description' (pandas.Series): The description for the cluster with the minimum mean PAE.
+        - 'max_pae_cluster' (pandas.Series): The maximum mean PAE score from the 8 clusters after KMeans clustering.
+        - 'hotspot_pae_cluster' (pandas.Series): The minimum mean PAE score from the 4 clusters after KMeans clustering of hotspot residues.
+        - 'hotspot_max_pae_cluster' (pandas.Series): The maximum mean PAE score from the 4 clusters after KMeans clustering of hotspot residues.
+        - 'hotspot_size' (pandas.Series): The cluster size (row x column) for the cluster with the minimum mean PAE of hotspot residues.
+        - 'hotspot_shape' (pandas.Series): The shape (row x column) for the cluster with the minimum mean PAE of hotspot residues.
+        - 'hotspot_cluster' (pandas.Series): The cluster number for the cluster with the minimum mean PAE of hotspot residues.
     
     Note:
     - The process_pae function is called in parallel for each row of af2scores and pae.
     """
     with multiprocessing.Pool(processes=num_cores) as pool:
-        pae_results = pool.starmap(process_pae, [(i, af2scores, af2pae) for i in range(af2scores.shape[0])])
+        pae_results = pool.starmap(process_pae, [(i, af2scores, af2pae, contigmap, hotspots) for i in range(af2scores.shape[0])])
         
         # Extract the relevant parts from the dictionaries
         min_pae_list = [pd.Series(result['min_pae']) if result is not None else pd.Series([None]) for result in pae_results]
@@ -207,6 +339,12 @@ def parallel_process_pae(af2scores, af2pae, num_cores):
         min_pae_size_fraction_list = [pd.Series(result['min_pae_size_fraction']) if result is not None else pd.Series([None]) for result in pae_results]
         min_pae_shape_list = [pd.Series([tuple(result['min_pae_shape'])]) if result is not None else pd.Series([None]) for result in pae_results]
         min_pae_cluster_list = [pd.Series(result['min_pae_cluster']) if result is not None else pd.Series([None]) for result in pae_results]
+        hotspot_min_pae_list = [pd.Series(result['hotspot_min_pae']) if result is not None else pd.Series([None]) for result in pae_results]
+        hotspot_max_pae_list = [pd.Series(result['hotspot_max_pae']) if result is not None else pd.Series([None]) for result in pae_results]
+        hotspot_min_pae_size_list = [pd.Series(result['hotspot_min_pae_size']) if result is not None else pd.Series([None]) for result in pae_results]
+        hotspot_min_pae_size_fraction_list = [pd.Series(result['hotspot_min_pae_size_fraction']) if result is not None else pd.Series([None]) for result in pae_results]
+        hotspot_min_pae_shape_list = [pd.Series([tuple(result['hotspot_min_pae_shape'])]) if result is not None else pd.Series([None]) for result in pae_results]
+        hotspot_min_pae_cluster_list = [pd.Series(result['hotspot_min_pae_cluster']) if result is not None else pd.Series([None]) for result in pae_results]
         pae_sample = [pd.Series(result['pae_sample']) if result is not None else pd.Series([None]) for result in pae_results]
         
         # Concatenate the extracted parts if they are pandas objects
@@ -216,6 +354,12 @@ def parallel_process_pae(af2scores, af2pae, num_cores):
         min_pae_size_fraction_df = pd.concat(min_pae_size_fraction_list)
         min_pae_shape_df = pd.concat(min_pae_shape_list)
         min_pae_cluster_df = pd.concat(min_pae_cluster_list)
+        hotspot_min_pae_df = pd.concat(hotspot_min_pae_list)
+        hotspot_max_pae_df = pd.concat(hotspot_max_pae_list)
+        hotspot_min_pae_size_df = pd.concat(hotspot_min_pae_size_list)
+        hotspot_min_pae_size_fraction_df = pd.concat(hotspot_min_pae_size_fraction_list)
+        hotspot_min_pae_shape_df = pd.concat(hotspot_min_pae_shape_list)
+        hotspot_min_pae_cluster_df = pd.concat(hotspot_min_pae_cluster_list)
         pae_sample = pd.concat(pae_sample)
         
         # Combine the results into a final DataFrame or dictionary
@@ -226,11 +370,17 @@ def parallel_process_pae(af2scores, af2pae, num_cores):
             'shape': min_pae_shape_df,
             'cluster': min_pae_cluster_df,
             'pae_description': pae_sample,
-            'max_pae_cluster': max_pae_df
+            'max_pae_cluster': max_pae_df,
+            'hotspot_pae_cluster': hotspot_min_pae_df,
+            'hotspot_max_pae_cluster': hotspot_max_pae_df,
+            'hotspot_size': hotspot_min_pae_size_df,
+            'hotspot_size_fraction': hotspot_min_pae_size_fraction_df,
+            'hotspot_shape': hotspot_min_pae_shape_df,
+            'hotspot_cluster': hotspot_min_pae_cluster_df
         }
         
     return final_results
-       
+
 if __name__ == '__main__':
     #################################
     # Parse Arguments
@@ -242,6 +392,8 @@ if __name__ == '__main__':
     parser.add_argument( "-score", type=str, default=None, help='The path of a file of af2-initial guess scores' )
     parser.add_argument( "-pae", type=str, default=None, help='The path of a file of af2-initial guess pae values' )
     parser.add_argument( "-checkpoint", type=str, default=None, help='The path of the checkpoint file' )
+    parser.add_argument( "-contigmap", type=str, default=None, help='The RFdiffusion contigmap parameter' )
+    parser.add_argument( "-hotspots", type=str, default=None, help='The RFdiffusion hotspots parameter' )
 
     args = parser.parse_args()
 
@@ -329,7 +481,7 @@ if __name__ == '__main__':
     num_cores = max(multiprocessing.cpu_count() - 2, 1)
     print("This may take a while. The number of cores used is :", num_cores, "\n")
     #from af2_initial_guess.pae_clustering import parallel_process_pae, process_pae
-    pae_results = parallel_process_pae(af2scores, pae, num_cores)
+    pae_results = parallel_process_pae(af2scores, pae, args.contigmap, args.hotspots, num_cores)
     
     # Add the pae scores to the af2scores dataframe and write a file for missing pae values
     print('Adding the clustered pae scores to the af2.sc file \n')
