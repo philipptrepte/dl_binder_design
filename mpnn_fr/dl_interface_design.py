@@ -48,6 +48,7 @@ parser.add_argument( "-outpdbdir", type=str, default="outputs", help='The direct
 parser.add_argument( "-outsilent", type=str, default="out.silent", help='The name of the silent file to which output structs will be written, used if the -silent arg is active' )
 parser.add_argument( "-runlist", type=str, default='', help="The path of a list of pdb tags to run, only active when the -pdbdir arg is active (default: ''; Run all PDBs)" )
 parser.add_argument( "-checkpoint_name", type=str, default='check.point', help="The name of a file where tags which have finished will be written (default: check.point)" )
+parser.add_argument( "-mpnn_score", type=str, default='mpnn.score', help="The name of a file where the final MPNN score will be written (default: mpnn.score)" )
 parser.add_argument( "-temp_name", type=str, default="temp.pdb", help="The name of a temporary pdb file (default: temp.pdb)" )
 
 parser.add_argument( "-debug", action="store_true", default=False, help='When active, errors will cause the script to crash and the error message to be printed out (default: False)')
@@ -272,6 +273,12 @@ class ProteinMPNN_runner():
 
         tag = f"{prefix}_0_cycle{args.relax_cycles}"
         self.struct_manager.dump_pose(sample_feats.pose, tag)
+
+        # Write final MPNN score to a score file
+        print(f"Final MPNN score after {args.relax_cycles} cycles: {mpnn_score}")
+        score_file = args.mpnn_score
+        with open(score_file, 'a') as f:
+            f.write(f"{sample_feats.tag}\t{mpnn_score}\n")
 
     def run_model(self, tag, args):
         t0 = time.time()
