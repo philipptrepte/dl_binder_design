@@ -136,22 +136,27 @@ def process_pae(i, af2scores, af2pae, contigmap, hotspots):
                 kmeans_BA_cols = np.nan
 
             # Check if KMeans clustering gives a result
-            if (kmeans_AB_rows is not None and kmeans_AB_cols is not None and
-                np.unique(kmeans_AB_rows.labels_).size > 1 and np.unique(kmeans_AB_cols.labels_).size > 1):
+            if (kmeans_AB_rows is not None and not isinstance(kmeans_AB_rows, float) and
+                kmeans_AB_cols is not None and not isinstance(kmeans_AB_cols, float) and
+                np.unique(kmeans_AB_rows.labels_).size > 1 and np.unique(kmeans_AB_cols.labels_).size > 1):            
                 try:
-                    sorted_AB = binder_AB[kmeans_AB_rows.labels_.argsort(), :]
-                    sorted_AB = binder_AB[:, kmeans_AB_cols.labels_.argsort()]
-                    sorted_AB_cluster1 = sorted_AB[kmeans_AB_rows.labels_==0, :][:, kmeans_AB_cols.labels_==0]
-                    sorted_AB_cluster2 = sorted_AB[kmeans_AB_rows.labels_==1, :][:, kmeans_AB_cols.labels_==1]
-                    sorted_AB_cluster3 = sorted_AB[kmeans_AB_rows.labels_==0, :][:, kmeans_AB_cols.labels_==1]
-                    sorted_AB_cluster4 = sorted_AB[kmeans_AB_rows.labels_==1, :][:, kmeans_AB_cols.labels_==0]
-                    mean_AB = pd.DataFrame([np.mean(sorted_AB_cluster1.astype(np.float64)), 
-                                        np.mean(sorted_AB_cluster2.astype(np.float64)),
-                                        np.mean(sorted_AB_cluster3.astype(np.float64)),
-                                        np.mean(sorted_AB_cluster4.astype(np.float64))], columns = ['means'])
+                    rows0 = kmeans_AB_rows.labels_ == 0
+                    cols0 = kmeans_AB_cols.labels_ == 0
+                    rows1 = kmeans_AB_rows.labels_ == 1
+                    cols1 = kmeans_AB_cols.labels_ == 1
+
+                    cluster1 = binder_AB[np.ix_(rows0, cols0)]
+                    cluster2 = binder_AB[np.ix_(rows1, cols1)]
+                    cluster3 = binder_AB[np.ix_(rows0, cols1)]
+                    cluster4 = binder_AB[np.ix_(rows1, cols0)]
+                    
+                    mean_AB = pd.DataFrame([np.mean(cluster1.astype(np.float64)), 
+                                        np.mean(cluster2.astype(np.float64)),
+                                        np.mean(cluster3.astype(np.float64)),
+                                        np.mean(cluster4.astype(np.float64))], columns = ['means'])
                     mean_AB['cluster'] = ['Cluster_1', 'Cluster_2', 'Cluster_3', 'Cluster_4']
-                    mean_AB['size'] = [sorted_AB_cluster1.size, sorted_AB_cluster2.size, sorted_AB_cluster3.size, sorted_AB_cluster4.size]
-                    mean_AB['shape'] = [sorted_AB_cluster1.shape, sorted_AB_cluster2.shape, sorted_AB_cluster3.shape, sorted_AB_cluster4.shape]
+                    mean_AB['size'] = [cluster1.size, cluster2.size, cluster3.size, cluster4.size]
+                    mean_AB['shape'] = [cluster1.shape, cluster2.shape, cluster3.shape, cluster4.shape]
                 except Exception as e:
                     print(f"Error calculating mean PAE for clustered AB interface at index {i}: {e}")
             else:
@@ -163,22 +168,27 @@ def process_pae(i, af2scores, af2pae, contigmap, hotspots):
                 except Exception as e:
                     print(f"Error calculating mean PAE for AB interface at index {i}: {e}")
 
-            if (kmeans_BA_rows is not None and kmeans_BA_cols is not None and
+            if (kmeans_BA_rows is not None and not isinstance(kmeans_BA_rows, float) and 
+                kmeans_BA_cols is not None and not isinstance(kmeans_BA_cols, float) and
                 np.unique(kmeans_BA_rows.labels_).size > 1 and np.unique(kmeans_BA_cols.labels_).size > 1):
                 try:
-                    sorted_BA = binder_BA[:, kmeans_BA_cols.labels_.argsort()]
-                    sorted_BA = binder_BA[kmeans_BA_rows.labels_.argsort(), :]
-                    sorted_BA_cluster5 = sorted_BA[kmeans_BA_rows.labels_==0, :][:, kmeans_BA_cols.labels_==0]
-                    sorted_BA_cluster6 = sorted_BA[kmeans_BA_rows.labels_==1, :][:, kmeans_BA_cols.labels_==1]
-                    sorted_BA_cluster7 = sorted_BA[kmeans_BA_rows.labels_==0, :][:, kmeans_BA_cols.labels_==1]
-                    sorted_BA_cluster8 = sorted_BA[kmeans_BA_rows.labels_==1, :][:, kmeans_BA_cols.labels_==0]
-                    mean_BA = pd.DataFrame([np.mean(sorted_BA_cluster5.astype(np.float64)), 
-                                        np.mean(sorted_BA_cluster6.astype(np.float64)),
-                                        np.mean(sorted_BA_cluster7.astype(np.float64)),
-                                        np.mean(sorted_BA_cluster8.astype(np.float64))], columns = ['means'])
+                    rows0 = kmeans_BA_rows.labels_ == 0
+                    cols0 = kmeans_BA_cols.labels_ == 0
+                    rows1 = kmeans_BA_rows.labels_ == 1
+                    cols1 = kmeans_BA_cols.labels_ == 1
+
+                    cluster5 = binder_BA[np.ix_(rows0, cols0)]
+                    cluster6 = binder_BA[np.ix_(rows1, cols1)]
+                    cluster7 = binder_BA[np.ix_(rows0, cols1)]
+                    cluster8 = binder_BA[np.ix_(rows1, cols0)]
+                    
+                    mean_BA = pd.DataFrame([np.mean(cluster5.astype(np.float64)), 
+                                        np.mean(cluster6.astype(np.float64)),
+                                        np.mean(cluster7.astype(np.float64)),
+                                        np.mean(cluster8.astype(np.float64))], columns = ['means'])
                     mean_BA['cluster'] = ['Cluster_5', 'Cluster_6', 'Cluster_7', 'Cluster_8']
-                    mean_BA['size'] = [sorted_BA_cluster5.size, sorted_BA_cluster6.size, sorted_BA_cluster7.size, sorted_BA_cluster8.size]
-                    mean_BA['shape'] = [sorted_BA_cluster5.shape, sorted_BA_cluster6.shape, sorted_BA_cluster7.shape, sorted_BA_cluster8.shape]
+                    mean_BA['size'] = [cluster5.size, cluster6.size, cluster7.size, cluster8.size]
+                    mean_BA['shape'] = [cluster5.shape, cluster6.shape, cluster7.shape, cluster8.shape]
                 except Exception as e:
                     print(f"Error calculating mean PAE for clustered BA interface at index {i}: {e}")
             else:
@@ -389,11 +399,12 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # I/O Arguments
-    parser.add_argument( "-score", type=str, default=None, help='The path of a file of af2-initial guess scores' )
+    parser.add_argument( "-score" , type=str, default=None, help='The path of a file of af2-initial guess scores' )
     parser.add_argument( "-pae", type=str, default=None, help='The path of a file of af2-initial guess pae values' )
     parser.add_argument( "-checkpoint", type=str, default=None, help='The path of the checkpoint file' )
     parser.add_argument( "-contigmap", type=str, default=None, help='The RFdiffusion contigmap parameter' )
     parser.add_argument( "-hotspots", type=str, default=None, help='The RFdiffusion hotspots parameter' )
+    parser.add_argument( "-num_cores", type=int, default=None, help='The number of CPU cores to be used for parallel processing' )
 
     args = parser.parse_args()
 
@@ -478,7 +489,10 @@ if __name__ == '__main__':
 
     # KMeans clustering of the pae values in parallel
     print("KMeans clustering is performed on the pae matrix in parallel \n")
-    num_cores = max(multiprocessing.cpu_count() - 2, 1)
+    if args.num_cores is not None:
+        num_cores = args.num_cores
+    else:
+        num_cores = multiprocessing.cpu_count()
     print("This may take a while. The number of cores used is :", num_cores, "\n")
     #from af2_initial_guess.pae_clustering import parallel_process_pae, process_pae
     pae_results = parallel_process_pae(af2scores, pae, args.contigmap, args.hotspots, num_cores)
