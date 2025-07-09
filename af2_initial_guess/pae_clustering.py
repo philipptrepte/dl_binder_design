@@ -157,6 +157,9 @@ def process_pae(i, af2scores, af2pae, contigmap, hotspots):
                     mean_AB['cluster'] = ['Cluster_1', 'Cluster_2', 'Cluster_3', 'Cluster_4']
                     mean_AB['size'] = [cluster1.size, cluster2.size, cluster3.size, cluster4.size]
                     mean_AB['shape'] = [cluster1.shape, cluster2.shape, cluster3.shape, cluster4.shape]
+                    total_matrix_size_AB = binder_AB.shape[0] * binder_AB.shape[1]
+                    mean_AB['size_weight'] = mean_AB['size'] / total_matrix_size_AB
+                    mean_AB['weighted_score'] = mean_AB['means'] * (1 / mean_AB['size_weight'])
                 except Exception as e:
                     print(f"Error calculating mean PAE for clustered AB interface at index {i}: {e}")
             else:
@@ -165,6 +168,9 @@ def process_pae(i, af2scores, af2pae, contigmap, hotspots):
                     mean_AB['cluster'] = 'KMeans_failed'
                     mean_AB['size'] = binder_AB.size
                     mean_AB['shape'] = binder_AB.shape
+                    total_matrix_size_AB = binder_AB.shape[0] * binder_AB.shape[1]
+                    mean_AB['size_weight'] = mean_AB['size'] / total_matrix_size_AB
+                    mean_AB['weighted_score'] = mean_AB['means'] * (1 / mean_AB['size_weight'])
                 except Exception as e:
                     print(f"Error calculating mean PAE for AB interface at index {i}: {e}")
 
@@ -189,6 +195,9 @@ def process_pae(i, af2scores, af2pae, contigmap, hotspots):
                     mean_BA['cluster'] = ['Cluster_5', 'Cluster_6', 'Cluster_7', 'Cluster_8']
                     mean_BA['size'] = [cluster5.size, cluster6.size, cluster7.size, cluster8.size]
                     mean_BA['shape'] = [cluster5.shape, cluster6.shape, cluster7.shape, cluster8.shape]
+                    total_matrix_size_BA = binder_BA.shape[0] * binder_BA.shape[1]
+                    mean_BA['size_weight'] = mean_BA['size'] / total_matrix_size_BA
+                    mean_BA['weighted_score'] = mean_BA['means'] * (1 / mean_BA['size_weight'])
                 except Exception as e:
                     print(f"Error calculating mean PAE for clustered BA interface at index {i}: {e}")
             else:
@@ -197,12 +206,16 @@ def process_pae(i, af2scores, af2pae, contigmap, hotspots):
                     mean_BA['cluster'] = 'KMeans_failed'
                     mean_BA['size'] = binder_BA.size
                     mean_BA['shape'] = binder_BA.shape
+                    total_matrix_size_BA = binder_BA.shape[0] * binder_BA.shape[1]
+                    mean_BA['size_weight'] = mean_BA['size'] / total_matrix_size_BA
+                    mean_BA['weighted_score'] = mean_BA['means'] * (1 / mean_BA['size_weight'])
                 except Exception as e:
                     print(f"Error calculating mean PAE for BA interface at index {i}: {e}")
 
             pae_score = pd.concat([mean_AB, mean_BA], axis=0).reset_index(drop=True)
             min_pae = np.min(pae_score['means'].astype(np.float64))
             max_pae = np.max(pae_score['means'].astype(np.float64))
+            pae_weighted = pae_score['weighted_score'].min()
             min_pae_size = pae_score.loc[pae_score['means'] == min_pae, 'size'].sum()
             min_pae_size_fraction = min_pae_size / (pae_score.loc[pae_score['means'] != min_pae, 'size'].sum())
             min_pae_shape = pae_score.loc[pae_score['means'].idxmin(), 'shape']
@@ -239,6 +252,10 @@ def process_pae(i, af2scores, af2pae, contigmap, hotspots):
                     mean_hotspot_0['cluster'] = ['Cluster_1', 'Cluster_2']
                     mean_hotspot_0['size'] = [hotspot_cluster1.size, hotspot_cluster2.size]
                     mean_hotspot_0['shape'] = [hotspot_cluster1.shape, hotspot_cluster2.shape]
+                    if isinstance(mean_hotspot_0, pd.DataFrame):
+                        total_hotspot_size_0 = hotspot_matrix_0.shape[0] * hotspot_matrix_0.shape[1]
+                        mean_hotspot_0['size_weight'] = mean_hotspot_0['size'] / total_hotspot_size_0
+                        mean_hotspot_0['weighted_score'] = mean_hotspot_0['means'] * (1 / mean_hotspot_0['size_weight'])
                 except Exception as e:
                     print(f"Error calculating mean PAE for hotspot residues at index {i}: {e}")
             else:
@@ -247,6 +264,10 @@ def process_pae(i, af2scores, af2pae, contigmap, hotspots):
                     mean_hotspot_0['cluster'] = 'KMeans_failed'
                     mean_hotspot_0['size'] = hotspot_matrix_0.size
                     mean_hotspot_0['shape'] = hotspot_matrix_0.shape
+                    if isinstance(mean_hotspot_0, pd.DataFrame):
+                        total_hotspot_size_0 = hotspot_matrix_0.shape[0] * hotspot_matrix_0.shape[1]
+                        mean_hotspot_0['size_weight'] = mean_hotspot_0['size'] / total_hotspot_size_0
+                        mean_hotspot_0['weighted_score'] = mean_hotspot_0['means'] * (1 / mean_hotspot_0['size_weight'])
                 except Exception as e:
                     print(f"Error calculating mean PAE for hotspot residues at index {i}: {e}")
 
@@ -257,6 +278,10 @@ def process_pae(i, af2scores, af2pae, contigmap, hotspots):
                     mean_hotspot_1['cluster'] = ['Cluster_3', 'Cluster_4']
                     mean_hotspot_1['size'] = [hotspot_cluster3.size, hotspot_cluster4.size]
                     mean_hotspot_1['shape'] = [hotspot_cluster3.shape, hotspot_cluster4.shape]
+                    if isinstance(mean_hotspot_1, pd.DataFrame):
+                        total_hotspot_size_1 = hotspot_matrix_1.shape[0] * hotspot_matrix_1.shape[1]
+                        mean_hotspot_1['size_weight'] = mean_hotspot_1['size'] / total_hotspot_size_1
+                        mean_hotspot_1['weighted_score'] = mean_hotspot_1['means'] * (1 / mean_hotspot_1['size_weight'])
                 except Exception as e:
                     print(f"Error calculating mean PAE for hotspot residues at index {i}: {e}")
             else:
@@ -265,12 +290,17 @@ def process_pae(i, af2scores, af2pae, contigmap, hotspots):
                     mean_hotspot_1['cluster'] = 'KMeans_failed'
                     mean_hotspot_1['size'] = hotspot_matrix_1.size
                     mean_hotspot_1['shape'] = hotspot_matrix_1.shape
+                    if isinstance(mean_hotspot_1, pd.DataFrame):
+                        total_hotspot_size_1 = hotspot_matrix_1.shape[0] * hotspot_matrix_1.shape[1]
+                        mean_hotspot_1['size_weight'] = mean_hotspot_1['size'] / total_hotspot_size_1
+                        mean_hotspot_1['weighted_score'] = mean_hotspot_1['means'] * (1 / mean_hotspot_1['size_weight'])
                 except Exception as e:
                     print(f"Error calculating mean PAE for hotspot residues at index {i}: {e}")
 
             hotspot_pae_score = pd.concat([mean_hotspot_0, mean_hotspot_1], axis=0).reset_index(drop=True)
             hotspot_min_pae = np.min(hotspot_pae_score['means'].astype(np.float64))
             hotspot_max_pae = np.max(hotspot_pae_score['means'].astype(np.float64))
+            hotspot_weighted_pae = hotspot_pae_score['weighted_score'].min()
             hotspot_min_pae_size = hotspot_pae_score.loc[hotspot_pae_score['means'] == hotspot_min_pae, 'size'].sum()
             hotspot_min_pae_size_fraction = hotspot_min_pae_size / (hotspot_pae_score.loc[hotspot_pae_score['means'] != hotspot_min_pae, 'size'].sum())
             hotspot_min_pae_shape = hotspot_pae_score.loc[hotspot_pae_score['means'].idxmin(), 'shape']
@@ -296,12 +326,14 @@ def process_pae(i, af2scores, af2pae, contigmap, hotspots):
         return {
             'min_pae': round(min_pae, 3), 
             'max_pae': round(max_pae, 3), 
+            'weighted_score': round(pae_score['weighted_score'].min(), 3),
             'min_pae_size': min_pae_size, 
             'min_pae_size_fraction': min_pae_size_fraction,
             'min_pae_shape': min_pae_shape, 
             'min_pae_cluster': min_pae_cluster,
             'hotspot_min_pae': round(hotspot_min_pae, 3),
             'hotspot_max_pae': round(hotspot_max_pae, 3),
+            'hotspot_weighted_score': round(hotspot_weighted_pae, 3),
             'hotspot_min_pae_size': hotspot_min_pae_size,
             'hotspot_min_pae_size_fraction': hotspot_min_pae_size_fraction,
             'hotspot_min_pae_shape': hotspot_min_pae_shape,
@@ -345,12 +377,14 @@ def parallel_process_pae(af2scores, af2pae, contigmap, hotspots, num_cores):
         # Extract the relevant parts from the dictionaries
         min_pae_list = [pd.Series(result['min_pae']) if result is not None else pd.Series([None]) for result in pae_results]
         max_pae_list = [pd.Series(result['max_pae']) if result is not None else pd.Series([None]) for result in pae_results]
+        weighted_score_list = [pd.Series(result['weighted_score']) if result is not None else pd.Series([None]) for result in pae_results]
         min_pae_size_list = [pd.Series(result['min_pae_size']) if result is not None else pd.Series([None]) for result in pae_results]
         min_pae_size_fraction_list = [pd.Series(result['min_pae_size_fraction']) if result is not None else pd.Series([None]) for result in pae_results]
         min_pae_shape_list = [pd.Series([tuple(result['min_pae_shape'])]) if result is not None else pd.Series([None]) for result in pae_results]
         min_pae_cluster_list = [pd.Series(result['min_pae_cluster']) if result is not None else pd.Series([None]) for result in pae_results]
         hotspot_min_pae_list = [pd.Series(result['hotspot_min_pae']) if result is not None else pd.Series([None]) for result in pae_results]
         hotspot_max_pae_list = [pd.Series(result['hotspot_max_pae']) if result is not None else pd.Series([None]) for result in pae_results]
+        hotspot_weighted_pae_list = [pd.Series(result['hotspot_weighted_score']) if result is not None else pd.Series([None]) for result in pae_results]
         hotspot_min_pae_size_list = [pd.Series(result['hotspot_min_pae_size']) if result is not None else pd.Series([None]) for result in pae_results]
         hotspot_min_pae_size_fraction_list = [pd.Series(result['hotspot_min_pae_size_fraction']) if result is not None else pd.Series([None]) for result in pae_results]
         hotspot_min_pae_shape_list = [pd.Series([tuple(result['hotspot_min_pae_shape'])]) if result is not None else pd.Series([None]) for result in pae_results]
@@ -360,12 +394,14 @@ def parallel_process_pae(af2scores, af2pae, contigmap, hotspots, num_cores):
         # Concatenate the extracted parts if they are pandas objects
         min_pae_df = pd.concat(min_pae_list)
         max_pae_df = pd.concat(max_pae_list)
+        weighted_score_df = pd.concat(weighted_score_list)
         min_pae_size_df = pd.concat(min_pae_size_list)
         min_pae_size_fraction_df = pd.concat(min_pae_size_fraction_list)
         min_pae_shape_df = pd.concat(min_pae_shape_list)
         min_pae_cluster_df = pd.concat(min_pae_cluster_list)
         hotspot_min_pae_df = pd.concat(hotspot_min_pae_list)
         hotspot_max_pae_df = pd.concat(hotspot_max_pae_list)
+        hotspot_weighted_pae_df = pd.concat(hotspot_weighted_pae_list)
         hotspot_min_pae_size_df = pd.concat(hotspot_min_pae_size_list)
         hotspot_min_pae_size_fraction_df = pd.concat(hotspot_min_pae_size_fraction_list)
         hotspot_min_pae_shape_df = pd.concat(hotspot_min_pae_shape_list)
@@ -375,6 +411,7 @@ def parallel_process_pae(af2scores, af2pae, contigmap, hotspots, num_cores):
         # Combine the results into a final DataFrame or dictionary
         final_results = {
             'pae_cluster': min_pae_df,
+            'pae_weighted': weighted_score_df,
             'size': min_pae_size_df,
             'size_fraction': min_pae_size_fraction_df,
             'shape': min_pae_shape_df,
@@ -382,6 +419,7 @@ def parallel_process_pae(af2scores, af2pae, contigmap, hotspots, num_cores):
             'pae_description': pae_sample,
             'max_pae_cluster': max_pae_df,
             'hotspot_pae_cluster': hotspot_min_pae_df,
+            'hotspot_weighted_pae': hotspot_weighted_pae_df,
             'hotspot_max_pae_cluster': hotspot_max_pae_df,
             'hotspot_size': hotspot_min_pae_size_df,
             'hotspot_size_fraction': hotspot_min_pae_size_fraction_df,

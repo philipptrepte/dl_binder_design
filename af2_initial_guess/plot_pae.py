@@ -28,12 +28,16 @@ def pae_heatmap(selected_binder, pae, af2scores):
     
     """
 
-    binderlen = af2scores[af2scores['description'] == selected_binder]['binderlen']
+    binderlen = af2scores[af2scores['pae_description'] == selected_binder]['binderlen']
+    if binderlen.empty:
+        raise ValueError(f"No binder length found for description: {selected_binder}")
     binderlen = int(binderlen.iloc[0])
 
-    pae = pae[pae[2].str.strip()==selected_binder]
+    pae_selected = pae[pae[2].str.strip()==selected_binder]
+    if pae_selected.empty:
+        raise ValueError(f"No PAE entry found for description: {selected_binder}")
 
-    complex = pae[[1]].iloc[0].str.split(',\s+|\s+', expand=True)
+    complex = pae_selected[[1]].iloc[0].str.split(',\s+|\s+', expand=True)
     complex = complex.dropna(how='all', axis=1)
     complex_list = complex.values.flatten().tolist()
     complex_size = int(np.sqrt(len(complex_list)))
@@ -66,7 +70,7 @@ def pae_heatmap(selected_binder, pae, af2scores):
     cmap = LinearSegmentedColormap.from_list("mycmap", colors)
 
     fig = plt.figure(constrained_layout=True, figsize=(10, 10))
-    fig.suptitle(f'PAE heatmap and KMeans clustering of inter-protein distances for {selected_binder}')
+    fig.suptitle(f'PAE heatmap and KMeans clustering of inter-protein PAEs for {selected_binder}')
     gs = fig.add_gridspec(3, 2, height_ratios=[2, 1, 1])
 
     ax1 = fig.add_subplot(gs[0, :])
@@ -146,7 +150,7 @@ def pae_heatmap_hotspots(selected_binder, pae, af2scores, contigmap, hotspots):
     
     """
 
-    binderlen = af2scores[af2scores['description'] == selected_binder]['binderlen']
+    binderlen = af2scores[af2scores['pae_description'] == selected_binder]['binderlen']
     binderlen = int(binderlen.iloc[0])
 
     # Define the contigmap string
@@ -201,7 +205,7 @@ def pae_heatmap_hotspots(selected_binder, pae, af2scores, contigmap, hotspots):
     cmap = LinearSegmentedColormap.from_list("mycmap", colors)
 
     fig = plt.figure(constrained_layout=True, figsize=(10, 5))
-    fig.suptitle(f'Hotspots distances for {selected_binder}')
+    fig.suptitle(f'Hotspot PAEs for {selected_binder}')
     gs = fig.add_gridspec(1, 2)
 
     ax1 = fig.add_subplot(gs[0, 0])
