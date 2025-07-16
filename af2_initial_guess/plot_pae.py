@@ -232,56 +232,94 @@ def pae_heatmap_hotspots(selected_binder, pae, af2scores, contigmap, hotspots):
     plt.show()
 
 def plot_binder(file, selected_binder, contigmap, hotspots):
-    # Create a 3D viewer
+    """
+    Visualizes a protein structure with highlighted hotspots using py3Dmol.
+
+    Args:
+        file (str): Path to the PDB file to visualize.
+        selected_binder (str): Identifier for the structure to parse.
+        contigmap (str): String specifying residue ranges for chains A and B in the format 'Astart-end/0 Bstart-end/0'.
+        hotspots (str): String specifying hotspot residues for chains A and B in the format 'Aresidue Bresidue'.
+
+    Behavior:
+        - Parses the PDB file to extract chains A and B.
+        - Extracts residue ranges for each chain from the contigmap.
+        - Identifies hotspot residues for each chain from the hotspots string.
+        - Maps hotspot residues to their positions within the specified ranges.
+        - Visualizes the structure using py3Dmol:
+            - Chain A is colored orange.
+            - Chain B is colored cyan.
+            - Hotspot residues are highlighted in red sticks on their respective chains.
+        - Displays the interactive 3D visualization.
+
+    Note:
+        Requires py3Dmol and Biopython's PDBParser.
+    """
     print(file)
-    
-    # Parse the PDB structure
     parser = PDBParser(QUIET=True)
     structure = parser.get_structure(file=file, id=selected_binder)
-    # Get the length of chain A
+    # Get the length of chain A and B
     chain_A = structure[0]['A']
     length_of_chain_A = len(chain_A)
+    chain_B = structure[0]['B']
+    length_of_chain_B = len(chain_B)
 
-    # Define the contigmap string
-    contigmap = contigmap
-    ranges = re.findall(r'[AB](\d+)-(\d+)/0', contigmap)
+    # Parse contigmap for both chains
+    ranges_A = re.findall(r'A(\d+)-(\d+)/0', contigmap)
+    ranges_B = re.findall(r'B(\d+)-(\d+)/0', contigmap)
+    numbers_A = []
+    for start, end in ranges_A:
+        numbers_A.extend(range(int(start), int(end) + 1))
+    numbers_B = []
+    for start, end in ranges_B:
+        numbers_B.extend(range(int(start), int(end) + 1))
 
-    # Convert ranges to individual numbers and combine them into one list
-    numbers = []
-    for start, end in ranges:
-            numbers.extend(range(int(start), int(end) + 1))
+    # Parse hotspots for both chains
+    hotspots_A = re.findall(r'A(\d+)', hotspots)
+    hotspots_B = re.findall(r'B(\d+)', hotspots)
+    hotspots_A = [int(h) for h in hotspots_A]
+    hotspots_B = [int(h) for h in hotspots_B]
 
-    # Define the hotspot string
-    hotspots = hotspots
-    hotspots = re.findall(r'[AB](\d+)', hotspots)
-    hotspots = [int(number) for number in hotspots]
-
-    # Map each hotspot to its position in numbers
-    hotspot_positions = {}
-    for hotspot in hotspots:
-        if hotspot in numbers:
-            position = numbers.index(hotspot)
-            hotspot_positions[hotspot] = position
-        else:
-            hotspot_positions[hotspot] = None
-    hotspot = list(hotspot_positions.values())
-
-    residues = [hotspot + length_of_chain_A + 1 for hotspot in hotspot]
+    # Map each hotspot to its position in numbers for each chain
+    hotspot_positions_A = []
+    for h in hotspots_A:
+        if h in numbers_A:
+            position = numbers_A.index(h) + 1  # PDB residue numbers are 1-based
+            hotspot_positions_A.append(position)
+    hotspot_positions_B = []
+    for h in hotspots_B:
+        if h in numbers_B:
+            position = numbers_B.index(h) + 1
+            hotspot_positions_B.append(position)
 
     p = py3Dmol.view(query=file, height=400, width=400)
-
-    # Set the color of chain A to orange
     p.setStyle({'chain': 'A'}, {'cartoon': {'color': 'orange'}})
-    
-    # Set the color of chain B to cyan
     p.setStyle({'chain': 'B'}, {'cartoon': {'color': 'cyan'}})
-    # Set the color of specific amino acid numbers
-    p.addStyle({'resi': residues}, {'stick': {'color': 'red'}})
-
-    # Show the 3D viewer
+    if hotspot_positions_A:
+        p.addStyle({'chain': 'A', 'resi': hotspot_positions_A}, {'stick': {'color': 'red'}})
+    if hotspot_positions_B:
+        p.addStyle({'chain': 'B', 'resi': hotspot_positions_B}, {'stick': {'color': 'red'}})
     p.show()
 
 def barplot_scores(af2scores, selected_binder):
+    """
+    Generates and displays a barplot of numerical scores for a selected binder from an AlphaFold2 scores DataFrame.
+
+    The function filters the input DataFrame for the specified binder using either the 'pae_description' or 'description'
+    column, selects only numerical columns, and then creates a barplot of these scores.
+
+    Parameters
+    ----------
+    af2scores : pandas.DataFrame
+        DataFrame containing AlphaFold2 scores, including a column for binder description and numerical score columns.
+    selected_binder : str
+        The identifier or description of the binder to filter and plot scores for.
+
+    Returns
+    -------
+    None
+        Displays a barplot of the selected binder's scores.
+    """
     if af2scores.columns.isin(['pae_description']).any():
         selected_binder_data = af2scores[af2scores['pae_description'] == selected_binder]
     elif af2scores.columns.isin(['description']).any():
@@ -301,6 +339,22 @@ def barplot_scores(af2scores, selected_binder):
     plt.show()
 
 def pae_monomer_heatmap(selected_monomer, af2pae):
+    """
+    Generates and displays a heatmap of the Predicted Aligned Error (PAE) for a selected monomer.
+    Parameters
+    ----------
+    selected_monomer : str
+        The identifier or name of the monomer to visualize.
+    af2pae : pandas.DataFrame
+        DataFrame containing PAE data. Must include either a 'description' column or a column at index 2
+        for monomer identification, and a 'PAE' column or column at index 1 with comma-separated PAE values.
+    Notes
+    -----
+    - The function automatically detects the column structure of the input DataFrame.
+    - The PAE values are reshaped into a square matrix and visualized as a heatmap using seaborn.
+    - The heatmap uses a blue-white-red color map, with values ranging from 0 to 35.
+    - Amino acid indices are labeled on both axes, and the selected monomer name is displayed at the center of the plot.
+    """
     
     if af2pae.columns.isin(['description']).any():
         pae = af2pae[af2pae['description'].str.strip()==selected_monomer]
