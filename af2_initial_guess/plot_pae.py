@@ -37,7 +37,7 @@ def pae_heatmap(selected_binder, pae, af2scores):
     if pae_selected.empty:
         raise ValueError(f"No PAE entry found for description: {selected_binder}")
 
-    complex = pae_selected[[1]].iloc[0].str.split(',\s+|\s+', expand=True)
+    complex = pae_selected[[1]].iloc[0].str.split(r',\s+|\s+', expand=True)
     complex = complex.dropna(how='all', axis=1)
     complex_list = complex.values.flatten().tolist()
     complex_size = int(np.sqrt(len(complex_list)))
@@ -174,7 +174,7 @@ def pae_heatmap_hotspots(selected_binder, pae, af2scores, contigmap, hotspots):
     residues = [hotspot + binderlen + 1 for hotspot in hotspot]
 
     selected_pae = pae[pae[2].str.strip()==selected_binder]
-    complex = selected_pae[[1]].iloc[0].str.split(',\s+|\s+', expand=True)
+    complex = selected_pae[[1]].iloc[0].str.split(r',\s+|\s+', expand=True)
     complex = complex.dropna(how='all', axis=1)
     complex_list = complex.values.flatten().tolist()
     complex_size = int(np.sqrt(len(complex_list)))
@@ -357,10 +357,10 @@ def pae_monomer_heatmap(selected_monomer, af2pae):
     
     if af2pae.columns.isin(['description']).any():
         pae = af2pae[af2pae['description'].str.strip()==selected_monomer]
-        complex = pae[['PAE']].iloc[0].str.split(',\s+|\s+', expand=True)
+        complex = pae[['PAE']].iloc[0].str.split(r',\s+|\s+', expand=True)
     else:
         pae = af2pae[af2pae[2].str.strip()==selected_monomer]
-        complex = pae[[1]].iloc[0].str.split(',\s+|\s+', expand=True)
+        complex = pae[[1]].iloc[0].str.split(r',\s+|\s+', expand=True)
     complex = complex.dropna(how='all', axis=1)
     complex_list = complex.values.flatten().tolist()
     complex_size = int(np.sqrt(len(complex_list)))
