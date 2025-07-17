@@ -260,45 +260,44 @@ def plot_binder(file, selected_binder, contigmap, hotspots):
     structure = parser.get_structure(file=file, id=selected_binder)
     # Get the length of chain A and B
     chain_A = structure[0]['A']
+    # Get the start and end residue numbers for chain A
+    residues_A = [residue.id[1] for residue in chain_A]
+    if residues_A:
+        start_A = min(residues_A)
+        end_A = max(residues_A)
+    else:
+        print("Chain A has no residues.")
     length_of_chain_A = len(chain_A)
     chain_B = structure[0]['B']
+    residues_B = [residue.id[1] for residue in chain_B]
+    if residues_B:
+        start_B = min(residues_B)
+        end_B = max(residues_B)
+    else:
+        print("Chain B has no residues.")
     length_of_chain_B = len(chain_B)
-
     # Parse contigmap for both chains
-    ranges_A = re.findall(r'A(\d+)-(\d+)/0', contigmap)
-    ranges_B = re.findall(r'B(\d+)-(\d+)/0', contigmap)
+    ranges_A = [(start_A, end_A)]
+    ranges_B = [(start_B, end_B)]
     numbers_A = []
     for start, end in ranges_A:
         numbers_A.extend(range(int(start), int(end) + 1))
     numbers_B = []
     for start, end in ranges_B:
         numbers_B.extend(range(int(start), int(end) + 1))
-
     # Parse hotspots for both chains
     hotspots_A = re.findall(r'A(\d+)', hotspots)
     hotspots_B = re.findall(r'B(\d+)', hotspots)
-    hotspots_A = [int(h) for h in hotspots_A]
-    hotspots_B = [int(h) for h in hotspots_B]
-
-    # Map each hotspot to its position in numbers for each chain
-    hotspot_positions_A = []
-    for h in hotspots_A:
-        if h in numbers_A:
-            position = numbers_A.index(h) + 1  # PDB residue numbers are 1-based
-            hotspot_positions_A.append(position)
-    hotspot_positions_B = []
-    for h in hotspots_B:
-        if h in numbers_B:
-            position = numbers_B.index(h) + 1
-            hotspot_positions_B.append(position)
+    hotspots_A = [int(h) + ranges_A[0][0] - 1 for h in hotspots_A]  # Add the range of chain A to hotspots_A
+    hotspots_B = [int(h) + ranges_B[0][0] - 1 for h in hotspots_B]  # Add the range of chain B to hotspots_B
 
     p = py3Dmol.view(query=file, height=400, width=400)
     p.setStyle({'chain': 'A'}, {'cartoon': {'color': 'orange'}})
     p.setStyle({'chain': 'B'}, {'cartoon': {'color': 'cyan'}})
-    if hotspot_positions_A:
-        p.addStyle({'chain': 'A', 'resi': hotspot_positions_A}, {'stick': {'color': 'red'}})
-    if hotspot_positions_B:
-        p.addStyle({'chain': 'B', 'resi': hotspot_positions_B}, {'stick': {'color': 'red'}})
+    if hotspots_A:
+        p.addStyle({'chain': 'A', 'resi': hotspots_A}, {'stick': {'color': 'red'}})
+    if hotspots_B:
+        p.addStyle({'chain': 'B', 'resi': hotspots_B}, {'stick': {'color': 'red'}})
     p.show()
 
 def barplot_scores(af2scores, selected_binder):
