@@ -1,4 +1,17 @@
 #!/bin/bash
+set -x
+
+if expr "$1" : '^[0-9][0-9]*$' >/dev/null; then
+    cpus=$1
+    shift
+else
+    cpus=${SLURM_CPUS_PER_TASK:-16}
+fi
+
+# Now "$@" contains only PDB files
+for tag in "$@"; do
+    echo $tag
+done >> $tmp_list
 
 tags=""
 
@@ -31,15 +44,13 @@ fi
 tmp_fol=$(head /dev/urandom | tr -dc A-Za-z0-9 | head -c 13)
 tmp_fol="tmp_${tmp_fol}"
 
-cpus=16 #$(parallel --number-of-cores)
-
 splitno=$((( $(wc -l $tmp_list | awk '{print $1}') / ($cpus * 8) + 1)))
 
 mkdir $tmp_fol
 
 split -l $splitno $tmp_list $tmp_fol/x
 
-ls $tmp_fol/x* | parallel -j16 'cat {} | silentfrompdbs'
+ls $tmp_fol/x* | parallel -j$cpus 'cat {} | silentfrompdbs'
 
 rm $tmp_list
 rm -r $tmp_fol
