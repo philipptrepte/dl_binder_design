@@ -27,27 +27,44 @@ count=$(silentls "$1" | wc -l)
 echo $count " PDB files"
 mkdir .tmp
 cd .tmp
+if [[ $count -lt $cpus ]]; then
+    cpus=$count
+fi
 echo "Using $cpus CPUs"
 
 #Calculate the number of splits by dividing the number of PDB files by the number of CPUs
 split=$(echo "scale=0; $count / $cpus" | bc)
+if [[ $split -lt 1 ]]; then
+    split=1
+fi
 
 # Split the file into smaller files
-silentsplit $1 $split
+silentsplit ../"$1" $split
+
+export OMP_NUM_THREADS=1
+export OPENBLAS_NUM_THREADS=1
+export MKL_NUM_THREADS=1
+export NUMEXPR_NUM_THREADS=1
 
 # Run proteinmpnn in parallel
-find . -name "x*" | parallel -j $cpus dl_interface_design.py -silent {} -relax_cycle $2 -seqs_per_struct $3 -outsilent {}_out.silent -checkpoint_name {}_check.point -temp_name {}_temp.pdb
+find . -name "x*" | parallel -j $cpus dl_interface_design.py -silent {} -relax_cycle $2 -seqs_per_struct $3 -outsilent {}_out.silent -checkpoint_name {}_check.point -temp_name {}_temp.pdb 
 
 # Create the new filenames
 filename=$1
-temp_name=${filename%_designs*.silent}
-date=${temp_name%_*}
-job_id=${temp_name##*_}
-new_filename="${date}_${job_id}_relax_cycles_${2}_seqs_per_struct_${3}"
+#temp_name=${filename%_designs*.silent}
+#date=${temp_name%_*}
+#job_id=${temp_name##*_}
+#new_filename="${date}_${job_id}_relax_cycles_${2}_seqs_per_struct_${3}"
+base_name=${filename%_design.silent}
+new_filename="${base_name}_relax_cycles_${2}_seqs_per_struct_${3}"
 
 # Merge the output files
 cat *out.silent > ${new_filename}.silent
 cat *check.point > ${new_filename}_check.point
+
+# Move the merged files to the original directory
+mv ${new_filename}.silent ../
+mv ${new_filename}_check.point ../
 
 # Clean up
 cd ..
