@@ -110,6 +110,15 @@ clean_af2.py -score [path/to/af2.sc] -pae [path/to/af2.pae] -checkpoint [path/to
   
   Cleans the AF2 initial guess score and PAE files by removing identifiers that are not found in the checkpoint file.
 
+### *af2_initial_guess/ipsae.py*
+
+Calculate the ipSAE values according to https://github.com/DunbrackLab/IPSAE/tree/main 
+The script will automatically extract all *.pdb files from the silentfile to a folder called `AF2` in the directory of the silentfile. If a folder called `AF2` already exists, the script assumes that it contains the *.pdb files extracted from the silentfile.
+Calculations are performed in parallel using all available CPUs.
+A new file containing the summary ipSAE scores will created with the filename: `[silentfile]\_pae\_[pae_cutoff]\_dist\_[dist_cutoff]\_IPSAE.txt`
+```bash
+python ipsae.py <path_to_pae_file> <path_to_silent_file> <pae_cutoff> <dist_cutoff>
+```
 
 # Table of Contents
 
@@ -125,6 +134,7 @@ clean_af2.py -score [path/to/af2.sc] -pae [path/to/af2.pae] -checkpoint [path/to
     - [*pae\_clustering.py*](#pae_clusteringpy)
     - [*af2\_initial\_guess/plot\_pae.py*](#af2_initial_guessplot_paepy)
     - [*af2\_initial\_guess/clean\_af2.py*](#af2_initial_guessclean_af2py)
+    - [*af2\_initial\_guess/ipsae.py*](#af2_initial_guessipsaepy)
 - [Table of Contents](#table-of-contents)
   - [Third Party Source Code ](#third-party-source-code-)
 - [Setup ](#setup-)
