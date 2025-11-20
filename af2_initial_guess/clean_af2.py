@@ -9,12 +9,11 @@ import os
 
 def repair_pae_script(file_path):
     """
-    Repairs the PAE script by running the 'repair_pae' command that calls the 'repair_pae.sh' shell script on the specified file.
+    Repairs the PAE file by running the 'repair_pae' command that calls the 'repair_pae.sh' shell script on the specified file.
     Only repairs the file if a string of the format '(\d+(\.\d+)?)pae:' (e.g. '11.3pae:') is found in the file. If a repair is necessary, a backup file is created.
 
     Parameters:
-    - file_path (str): The path to the PAE script file.
-
+    - file_path (str): The path to the PAE file.
     Returns:
     - A '.pae' repaired file and the original file as '.pae.backup' in the same directory as the original file. 
     """
