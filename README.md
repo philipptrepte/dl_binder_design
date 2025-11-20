@@ -41,12 +41,26 @@ Fixes `.PDB` files after using `diffuser.partial_T` in RFdiffusion, so that both
 
 ### *pae_clustering.py*
 
-Performs KMeans clustering on the PAE scores to identify the most likely interaction interface region as the cluster with the minimum mean PAE. This approach is described and benchmarked in [Trepte P. & Secker C. *et al.* (2024) AI-guided pipeline for protein–protein interaction drug discovery identifies a SARS-CoV-2 inhibitor. *Mol Syst Biol*: 1-30](https://www.embopress.org/doi/full/10.1038/s44320-024-00019-8) 
+Performs KMeans clustering on the PAE scores to identify the most likely interaction interface region as the cluster with the minimum mean PAE. This approach is described and benchmarked in [Trepte P. & Secker C. *et al.* (2024) AI-guided pipeline for protein–protein interaction drug discovery identifies a SARS-CoV-2 inhibitor. *Mol Syst Biol*: 1-30](https://www.embopress.org/doi/full/10.1038/s44320-024-00019-8) \
+Very large .pae files (>10 GB) can lead to RAM limits if processed in parallel using all cores. Reduce number of cores to e.g. `-num_cores 6`, lower KMeans memory footprint to e.g. `-kmaens_n_init 1` and process rows in batches sequentially by setting e.g. `batch_size 200`. If you still hit RAM limits, add the `-no_parallel` flag to run serially.
 
 ```sh
-pae_clustering.py -score [path/to/af2.score] -pae [path/to/af2.pae]
+pae_clustering.py -score "[path/to/af2.score]" -pae "[path/to/af2.pae]" -checkpoint "[path/to/check.point]" -contigmap "[A1-100/0 A150-200/0 80-120]" -hotspot "[A1, A2, A100]"
 ```
 
+#### Accepts arguments:
+-  **-score** for 'The path of a file of af2-initial guess scores' \
+-  **-pae** for 'The path of a file of af2-initial guess pae values' \
+-  **-checkpoint** for 'The path of the checkpoint file' \
+-  **-contigmap** as defined by 'The RFdiffusion contigmap parameter' \
+-  **-hotspots** as defined by 'The RFdiffusion hotspots parameter' \
+-  **-num_cores** to set 'The number of CPU cores to be used for parallel processing' (Optional) \
+-  **-repair_pae** to 'Repair the pae file before processing. \
+-  **-kmeans_n_init** to set 'Number of KMeans initializations (lower reduces memory)' \
+-  **-batch_size** to 'Process this many rows per pool instantiation.' \
+-  **-no_parallel** that "If True, disables parallel processing and runs sequentially."
+
+#### Calls functions
 - `process_pae(i, af2scores, pae)`
 
   Process the PAE (Protein-Antigen Interface Energy) for a given index from a data frame containing the AF2 scores and the PAE values and performs KMeans clustering. Returns the minimum mean PAE score from the eight clusters, as well as the respective cluster size, shape and number.
@@ -55,25 +69,7 @@ pae_clustering.py -score [path/to/af2.score] -pae [path/to/af2.pae]
   
   Perform parallel processing of the process_pae function on the given af2scores and pae arrays using multiple cores.
 
-- `repair_pae_script(filepath)`
-
-  Repairs the PAE script by running the 'repair_pae' command that calls the 'repair_pae.sh' shell script on the specified file.
-
-  Older versions created faulty .pae files where not all pae results where in a new line. Only repairs the file if a string of the format `'(\d+(\.\d+)?)pae:'` (e.g. '11.3pae:') is found in the file. If a repair is necessary, a backup file is created. To run the `repair_pae.sh` script, make `repair_pae.sh` executable by 
-  
-  ```sh
-  chmod +x repair_pae.sh
-  ``` 
-  
-  then create a shortcut in a folder that is in `$PATH` using 
-  
-  ```sh
-  sudo ln -s /path/to/af2_initial_guess/repair_pae.sh /usr/local/bin/repair_pae
-  ``` 
-  
-  A backup file of your `.pae` file will be created as `.pae.backup`.
-
-
+---
 
 ### *af2_initial_guess/plot_pae.py*
 
@@ -110,6 +106,24 @@ clean_af2.py -score [path/to/af2.sc] -pae [path/to/af2.pae] -checkpoint [path/to
   
   Cleans the AF2 initial guess score and PAE files by removing identifiers that are not found in the checkpoint file.
 
+- `repair_pae_script(filepath)`
+
+  Repairs the PAE script by running the 'repair_pae' command that calls the 'repair_pae.sh' shell script on the specified file.
+
+  Older versions created faulty .pae files where not all pae results where in a new line. Only repairs the file if a string of the format `'(\d+(\.\d+)?)pae:'` (e.g. '11.3pae:') is found in the file. If a repair is necessary, a backup file is created. To run the `repair_pae.sh` script, make `repair_pae.sh` executable by 
+  
+  ```sh
+  chmod +x repair_pae.sh
+  ``` 
+  
+  then create a shortcut in a folder that is in `$PATH` using 
+  
+  ```sh
+  sudo ln -s /path/to/af2_initial_guess/repair_pae.sh /usr/local/bin/repair_pae
+  ``` 
+  
+  A backup file of your `.pae` file will be created as `.pae.backup`.
+
 ### *af2_initial_guess/ipsae.py*
 
 Calculate the ipSAE values according to https://github.com/DunbrackLab/IPSAE/tree/main 
@@ -132,6 +146,8 @@ python ipsae.py <path_to_pae_file> <path_to_silent_file> <pae_cutoff> <dist_cuto
     - [*helper\_scripts/addFIXEDlabels.py*](#helper_scriptsaddfixedlabelspy)
   - [New functions](#new-functions)
     - [*pae\_clustering.py*](#pae_clusteringpy)
+      - [Accepts arguments:](#accepts-arguments)
+      - [Calls functions](#calls-functions)
     - [*af2\_initial\_guess/plot\_pae.py*](#af2_initial_guessplot_paepy)
     - [*af2\_initial\_guess/clean\_af2.py*](#af2_initial_guessclean_af2py)
     - [*af2\_initial\_guess/ipsae.py*](#af2_initial_guessipsaepy)
